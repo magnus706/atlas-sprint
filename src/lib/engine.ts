@@ -322,11 +322,11 @@ function buildForCountry(skill: Skill, c: Country, pool: Country[], rng: () => n
   }
 }
 
-export const SKILL_META: Record<Skill, { label: string; emoji: string }> = {
-  capital: { label: "Capitals", emoji: "🏛️" },
-  flag: { label: "Flags", emoji: "🚩" },
-  shape: { label: "Shapes", emoji: "🧩" },
-  locate: { label: "Map", emoji: "📍" },
-  neighbor: { label: "Neighbors", emoji: "🤝" },
-  rank: { label: "Top 10", emoji: "🏆" },
+export const SKILL_META: Record<Skill, { label: string }> = {
+  capital: { label: "Capitals" },
+  flag: { label: "Flags" },
+  shape: { label: "Shapes" },
+  locate: { label: "Map" },
+  neighbor: { label: "Neighbors" },
+  rank: { label: "Top 10" },
 };

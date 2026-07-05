@@ -1,35 +1,27 @@
 import type { Config } from "tailwindcss";
 
+// Atlas Sprint brand v2 — clean white surfaces, hairline borders,
+// one signature teal, flat accent set. No soft shadows; pressed 3D buttons.
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        cream: "#FFF6EB",
-        sand: "#F6E9D6",
-        ink: "#22304F",
-        "ink-soft": "#66739B",
-        coral: "#FF6B4A",
-        "coral-deep": "#D14B2E",
-        teal: "#2EC4B6",
-        "teal-deep": "#1F9C90",
-        sky: "#4CC9F0",
-        grape: "#7C5CE0",
-        "grape-deep": "#5F41C0",
-        sun: "#FFC53D",
-        "sun-deep": "#E0A420",
-        mint: "#3DDC97",
-        "mint-deep": "#27B378",
-        rose: "#FF5D8F",
-        ocean: "#DFF1FB",
+        brand: { DEFAULT: "#00B2A9", dark: "#008F88", deep: "#00726C", light: "#D9F4F2", tint: "#EFFBFA" },
+        blue: { DEFAULT: "#1CB0F6", dark: "#1899D6", light: "#DDF4FF" },
+        purple: { DEFAULT: "#B968F0", dark: "#9A4ED1", light: "#F3E8FC" },
+        orange: { DEFAULT: "#FF9600", dark: "#D67E00", light: "#FFF0DC" },
+        red: { DEFAULT: "#FF4B4B", dark: "#D63A3A", light: "#FFE5E5" },
+        yellow: { DEFAULT: "#FFC800", dark: "#D6A800", light: "#FFF5D6" },
+        green: { DEFAULT: "#2EC45E", dark: "#26A04E", light: "#E0F7E8" },
+        ink: "#4B4B4B",
+        sub: "#8F8F8F",
+        line: "#E5E5E5",
+        panel: "#F7F7F7",
       },
       fontFamily: {
-        display: ['"Baloo 2"', "Nunito", "system-ui", "sans-serif"],
+        display: ["Nunito", "system-ui", "sans-serif"],
         sans: ["Nunito", "system-ui", "sans-serif"],
-      },
-      boxShadow: {
-        pop: "0 4px 0 0 rgba(34,48,79,0.12)",
-        card: "0 2px 0 0 #EFE0CA",
       },
       keyframes: {
         shake: {
@@ -39,14 +31,9 @@ const config: Config = {
           "60%": { transform: "translateX(-4px)" },
           "80%": { transform: "translateX(4px)" },
         },
-        pulseSoft: {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.55" },
-        },
       },
       animation: {
         shake: "shake 0.45s ease-in-out",
-        pulseSoft: "pulseSoft 1.2s ease-in-out infinite",
       },
     },
   },

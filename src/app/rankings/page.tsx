@@ -8,15 +8,16 @@ import { COUNTRIES } from "@/data/countries";
 import { fmtArea, fmtPop } from "@/lib/format";
 import Flag from "@/components/Flag";
 import { Btn, Card, Chip } from "@/components/ui";
+import { GlobeIcon, PinIcon, TrophyIcon } from "@/components/icons";
 import { sfx } from "@/lib/sfx";
 
 type ListId = "area" | "pop" | "small" | "sparse";
 
-const LISTS: { id: ListId; emoji: string; label: string; desc: string }[] = [
-  { id: "area", emoji: "📐", label: "Largest countries", desc: "By total area" },
-  { id: "pop", emoji: "👥", label: "Most populous", desc: "By population" },
-  { id: "small", emoji: "🔎", label: "Smallest countries", desc: "Tiny but mighty" },
-  { id: "sparse", emoji: "🌵", label: "Fewest people", desc: "Wide open spaces" },
+const LISTS: { id: ListId; label: string }[] = [
+  { id: "area", label: "Largest countries" },
+  { id: "pop", label: "Most populous" },
+  { id: "small", label: "Smallest countries" },
+  { id: "sparse", label: "Fewest people" },
 ];
 
 export default function RankingsPage() {
@@ -49,38 +50,37 @@ export default function RankingsPage() {
 
   return (
     <div className="safe-bottom px-4 pt-6">
-      <h1 className="mb-1 font-display text-3xl font-extrabold">Top 10</h1>
-      <p className="mb-4 text-sm font-bold text-ink-soft">
+      <h1 className="mb-1 text-3xl font-extrabold">Top 10</h1>
+      <p className="mb-4 text-sm font-bold text-sub">
         The world's superlatives — guess them, then browse them.
       </p>
 
       {/* Play card */}
-      <div className="mb-5 rounded-3xl bg-grape p-5 text-white shadow-[0_6px_0_#5F41C0]">
-        <div className="flex items-center justify-between">
+      <div className="mb-5 rounded-2xl bg-purple p-5 text-white shadow-[0_4px_0_#9A4ED1]">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-wide opacity-90">Ranked rounds</p>
-            <h2 className="font-display text-xl font-extrabold">Can you order the giants?</h2>
-            <p className="mt-1 text-sm font-bold opacity-90">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-white/80">Ranked rounds</p>
+            <h2 className="mt-0.5 text-xl font-extrabold">Can you order the giants?</h2>
+            <p className="mt-1 text-sm font-bold text-white/85">
               8 ranking puzzles. No hearts — just bragging rights.
             </p>
           </div>
-          <motion.span
-            animate={{ rotate: [0, -8, 8, 0] }}
+          <motion.div
+            animate={{ rotate: [0, -6, 6, 0] }}
             transition={{ repeat: Infinity, duration: 3 }}
-            className="text-5xl"
           >
-            🏆
-          </motion.span>
+            <TrophyIcon size={56} />
+          </motion.div>
         </div>
         <Link href="/play?mode=rankings">
-          <Btn tone="white" full className="mt-4">
+          <Btn tone="white" full className="mt-4 !text-purple-dark">
             Play ranking round
           </Btn>
         </Link>
       </div>
 
       {/* Browse lists */}
-      <p className="mb-2 font-display text-lg font-extrabold">Browse the lists</p>
+      <p className="mb-2.5 text-lg font-extrabold">Browse the lists</p>
       <div className="no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4">
         {LISTS.map((l) => (
           <Chip
@@ -93,20 +93,19 @@ export default function RankingsPage() {
             }}
             className="whitespace-nowrap"
           >
-            {l.emoji} {l.label}
+            {l.id === "area" || l.id === "small" ? <PinIcon size={15} /> : <GlobeIcon size={15} />}
+            {l.label}
           </Chip>
         ))}
       </div>
 
       <Card className="p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="font-display text-base font-extrabold">
-            {LISTS.find((l) => l.id === list)!.emoji} {LISTS.find((l) => l.id === list)!.label}
-          </p>
+          <p className="font-extrabold">{LISTS.find((l) => l.id === list)!.label}</p>
           {revealed < 10 && (
             <button
               onClick={() => { sfx.tap(); setRevealed((r) => Math.min(10, r + (r === 0 ? 3 : 10))); }}
-              className="rounded-full bg-sun px-3 py-1.5 text-xs font-extrabold text-ink shadow-[0_3px_0_#E0A420]"
+              className="rounded-xl bg-yellow px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide text-ink shadow-[0_3px_0_#D6A800]"
             >
               {revealed === 0 ? "Reveal top 3" : "Reveal all"}
             </button>
@@ -123,7 +122,7 @@ export default function RankingsPage() {
                 initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: shown ? (i % 10) * 0.07 : 0 }}
-                className="relative overflow-hidden rounded-xl border-2 border-sand bg-white"
+                className="relative overflow-hidden rounded-xl border-2 border-line bg-white"
               >
                 {shown && (
                   <motion.div
@@ -136,13 +135,13 @@ export default function RankingsPage() {
                       }%`,
                     }}
                     transition={{ delay: i * 0.07 + 0.15, type: "spring", stiffness: 70, damping: 20 }}
-                    className="absolute inset-y-0 left-0 bg-sun/25"
+                    className="absolute inset-y-0 left-0 bg-yellow-light"
                   />
                 )}
                 <div className="relative flex items-center gap-3 p-2.5">
                   <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-display text-sm font-extrabold ${
-                      i === 0 ? "bg-sun text-ink" : i < 3 ? "bg-sand text-ink" : "bg-cream text-ink-soft"
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${
+                      i === 0 ? "bg-yellow text-ink" : i < 3 ? "bg-line text-ink" : "bg-panel text-sub"
                     }`}
                   >
                     {i + 1}
@@ -151,13 +150,13 @@ export default function RankingsPage() {
                     <>
                       <Flag countryId={c.id} size="sm" />
                       <span className="flex-1 text-sm font-extrabold">{c.name}</span>
-                      <span className="text-xs font-bold text-ink-soft">
+                      <span className="text-xs font-bold text-sub">
                         {list === "area" || list === "small" ? fmtArea(c.area) : fmtPop(c.pop)}
                       </span>
                     </>
                   ) : (
-                    <span className="flex-1 text-sm font-extrabold tracking-widest text-ink-soft">
-                      ??? ??????
+                    <span className="flex-1 text-sm font-extrabold tracking-widest text-line">
+                      ■■■ ■■■■■■
                     </span>
                   )}
                 </div>
@@ -166,7 +165,7 @@ export default function RankingsPage() {
           })}
         </div>
         {revealed === 0 && (
-          <p className="mt-3 text-center text-xs font-bold text-ink-soft">
+          <p className="mt-3 text-center text-xs font-bold text-sub">
             Guess the order in your head first — then reveal.
           </p>
         )}

@@ -292,29 +292,28 @@ export function accuracy(state: AppState): number {
 
 export interface Badge {
   id: string;
-  emoji: string;
   name: string;
   desc: string;
   test: (s: AppState) => boolean;
 }
 
 export const BADGES: Badge[] = [
-  { id: "first", emoji: "🎒", name: "First Steps", desc: "Finish your first round", test: (s) => s.sessions >= 1 },
-  { id: "sharp", emoji: "🎯", name: "Sharp", desc: "Score a perfect round", test: (s) => s.perfectRounds >= 1 },
-  { id: "streak3", emoji: "🔥", name: "Warming Up", desc: "3-day streak", test: (s) => s.bestStreak >= 3 },
-  { id: "streak7", emoji: "🌋", name: "On Fire", desc: "7-day streak", test: (s) => s.bestStreak >= 7 },
-  { id: "streak30", emoji: "☄️", name: "Unstoppable", desc: "30-day streak", test: (s) => s.bestStreak >= 30 },
-  { id: "combo8", emoji: "⚡", name: "Chain Lightning", desc: "8-answer combo", test: (s) => s.bestCombo >= 8 },
-  { id: "sprint600", emoji: "🏎️", name: "Speedster", desc: "Score 600+ in Sprint", test: (s) => s.sprintBest >= 600 },
-  { id: "century", emoji: "💯", name: "Century", desc: "100 correct answers", test: (s) => s.correct >= 100 },
-  { id: "explorer", emoji: "🧭", name: "Explorer", desc: "Inspect 15 countries in Sandbox", test: (s) => s.explored.length >= 15 },
-  { id: "atlas25", emoji: "🌍", name: "Atlas Apprentice", desc: "Touch 25 countries", test: (s) => Object.keys(s.mastery).length >= 25 },
+  { id: "first", name: "First Steps", desc: "Finish your first round", test: (s) => s.sessions >= 1 },
+  { id: "sharp", name: "Sharp", desc: "Score a perfect round", test: (s) => s.perfectRounds >= 1 },
+  { id: "streak3", name: "Warming Up", desc: "3-day streak", test: (s) => s.bestStreak >= 3 },
+  { id: "streak7", name: "On Fire", desc: "7-day streak", test: (s) => s.bestStreak >= 7 },
+  { id: "streak30", name: "Unstoppable", desc: "30-day streak", test: (s) => s.bestStreak >= 30 },
+  { id: "combo8", name: "Chain Lightning", desc: "8-answer combo", test: (s) => s.bestCombo >= 8 },
+  { id: "sprint600", name: "Speedster", desc: "Score 600+ in Sprint", test: (s) => s.sprintBest >= 600 },
+  { id: "century", name: "Century", desc: "100 correct answers", test: (s) => s.correct >= 100 },
+  { id: "explorer", name: "Explorer", desc: "Inspect 15 countries in Sandbox", test: (s) => s.explored.length >= 15 },
+  { id: "atlas25", name: "Atlas Apprentice", desc: "Touch 25 countries", test: (s) => Object.keys(s.mastery).length >= 25 },
   {
-    id: "master10", emoji: "👑", name: "Cartographer", desc: "Master 10 countries",
+    id: "master10", name: "Cartographer", desc: "Master 10 countries",
     test: (s) => Object.values(s.mastery).filter((m) => masteryState(m) === "Mastered").length >= 10,
   },
   {
-    id: "continents", emoji: "🛰️", name: "World Tour", desc: "Answer on every continent",
+    id: "continents", name: "World Tour", desc: "Answer on every continent",
     test: (s) => {
       const touched = new Set(
         COUNTRIES.filter((x) => s.mastery[x.id]).map((x) => x.continent)

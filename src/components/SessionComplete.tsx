@@ -6,7 +6,9 @@ import Link from "next/link";
 import { animate, motion } from "framer-motion";
 import Confetti from "./Confetti";
 import Flag from "./Flag";
+import Mascot, { type MascotPose } from "./Mascot";
 import { Btn, Card, Ring } from "./ui";
+import { FlameIcon, ShareIcon, TargetIcon } from "./icons";
 import { useProgress, STREAK_MILESTONES } from "@/lib/store";
 import { byId } from "@/data/countries";
 import type { Question, Mode } from "@/lib/engine";
@@ -72,8 +74,8 @@ export default function SessionComplete({
   const share = async () => {
     const text =
       sprintScore !== undefined
-        ? `⚡ I scored ${sprintScore} in Atlas Sprint's 60-second Sprint. Beat that.`
-        : `🌍 Atlas Sprint: ${acc}% accuracy, +${xp} XP${state.streak > 0 ? `, ${state.streak}-day streak` : ""}. Think you can beat me?`;
+        ? `I scored ${sprintScore} in Atlas Sprint's 60-second Sprint. Beat that.`
+        : `Atlas Sprint: ${acc}% accuracy, +${xp} XP${state.streak > 0 ? `, ${state.streak}-day streak` : ""}. Think you can beat me?`;
     try {
       if (navigator.share) {
         await navigator.share({ text });
@@ -103,6 +105,8 @@ export default function SessionComplete({
           ? "Strong round."
           : "Good practice.";
 
+  const pose: MascotPose = endedEarly ? "sad" : celebrate ? "celebrate" : acc >= 70 ? "happy" : "thinking";
+
   return (
     <div className="flex min-h-dvh flex-col px-5 pb-8 pt-10">
       {celebrate && <Confetti />}
@@ -111,24 +115,23 @@ export default function SessionComplete({
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 18 }}
-        className="mb-4 text-center"
+        className="mb-5 flex flex-col items-center text-center"
       >
-        <span className="text-6xl">
-          {endedEarly ? "💔" : sprintScore !== undefined ? "⚡" : perfect ? "🌟" : "🎒"}
-        </span>
-        <h1 className="mt-2 font-display text-3xl font-extrabold">{headline}</h1>
+        <Mascot size={130} pose={pose} />
+        <h1 className="mt-3 text-3xl font-extrabold">{headline}</h1>
         {milestone && (
           <motion.p
             initial={{ y: 8, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="mt-1 font-display text-lg font-extrabold text-coral"
+            className="mt-1.5 inline-flex items-center gap-1.5 rounded-xl bg-orange-light px-3 py-1.5 text-base font-extrabold text-orange-dark"
           >
-            🔥 {milestone}-day streak milestone!
+            <FlameIcon size={20} /> {milestone}-day streak milestone!
           </motion.p>
         )}
         {isDaily && !milestone && (
-          <p className="mt-1 text-sm font-bold text-ink-soft">
-            🔥 Streak: {state.streak} day{state.streak === 1 ? "" : "s"} — keep it alive.
+          <p className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-bold text-sub">
+            <FlameIcon size={16} lit={state.streak > 0} />
+            Streak: {state.streak} day{state.streak === 1 ? "" : "s"} — keep it alive.
           </p>
         )}
       </motion.div>
@@ -137,24 +140,24 @@ export default function SessionComplete({
       <Card className="mb-4 p-5">
         <div className="flex items-center justify-around">
           <div className="text-center">
-            <p className="font-display text-3xl font-extrabold text-coral">+{shownXp}</p>
-            <p className="text-xs font-bold text-ink-soft">XP</p>
+            <p className="text-3xl font-extrabold text-brand">+{shownXp}</p>
+            <p className="text-xs font-extrabold uppercase tracking-wide text-sub">XP</p>
           </div>
-          <Ring value={acc / 100} tone={acc >= 70 ? "#3DDC97" : "#FFC53D"} size={76}>
-            <span className="font-display text-lg font-extrabold">{acc}%</span>
+          <Ring value={acc / 100} tone={acc >= 70 ? "#00B2A9" : "#FFC800"} size={76}>
+            <span className="text-lg font-extrabold">{acc}%</span>
           </Ring>
           <div className="text-center">
-            <p className="font-display text-3xl font-extrabold text-grape">
+            <p className="text-3xl font-extrabold text-purple-dark">
               {sprintScore !== undefined ? sprintScore : `${right}/${total}`}
             </p>
-            <p className="text-xs font-bold text-ink-soft">
-              {sprintScore !== undefined ? "score" : "correct"}
+            <p className="text-xs font-extrabold uppercase tracking-wide text-sub">
+              {sprintScore !== undefined ? "Score" : "Correct"}
             </p>
           </div>
         </div>
         {bestCombo >= 3 && (
-          <p className="mt-3 text-center text-sm font-extrabold text-sun-deep">
-            ⚡ Best combo: {bestCombo} in a row
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm font-extrabold text-yellow-dark">
+            <FlameIcon size={18} /> Best combo: {bestCombo} in a row
           </p>
         )}
       </Card>
@@ -162,12 +165,14 @@ export default function SessionComplete({
       {/* Weak spots */}
       {wrongCountries.length > 0 && (
         <Card className="mb-4 p-4">
-          <p className="mb-2 font-display text-sm font-extrabold">Added to review</p>
+          <p className="mb-2 flex items-center gap-1.5 text-sm font-extrabold">
+            <TargetIcon size={18} /> Added to review
+          </p>
           <div className="flex flex-wrap gap-2">
             {wrongCountries.slice(0, 6).map((id) => (
               <span
                 key={id}
-                className="inline-flex items-center gap-1.5 rounded-full border-2 border-sand bg-cream px-2.5 py-1 text-xs font-extrabold"
+                className="inline-flex items-center gap-1.5 rounded-xl border-2 border-line bg-panel px-2.5 py-1 text-xs font-extrabold"
               >
                 <Flag countryId={id} size="sm" className="!h-4 !w-6" />
                 {byId.get(id)?.name}
@@ -178,18 +183,19 @@ export default function SessionComplete({
       )}
 
       <div className="mt-auto flex flex-col gap-3">
-        <Btn tone="grape" full onClick={share}>
-          {copied ? "Copied! 📋" : "Challenge a friend 📤"}
+        <Btn tone="blue" full onClick={share}>
+          <ShareIcon size={18} />
+          {copied ? "Copied!" : "Challenge a friend"}
         </Btn>
         {wrongCountries.length > 0 && (
           <Link href="/review">
-            <Btn tone="sun" full>
-              Fix weak spots 🎯
+            <Btn tone="yellow" full>
+              Fix weak spots
             </Btn>
           </Link>
         )}
-        <Btn tone="coral" full onClick={onAgain}>
-          One more round?
+        <Btn tone="brand" full onClick={onAgain}>
+          One more round
         </Btn>
         <Link href="/">
           <Btn tone="white" full>

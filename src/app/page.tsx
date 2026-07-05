@@ -14,7 +14,18 @@ import {
 } from "@/lib/store";
 import { dayKey } from "@/lib/format";
 import { CONTINENTS, CONTINENT_META } from "@/data/countries";
-import { Bar, Btn, Card, Hearts, StreakBadge, Ring } from "@/components/ui";
+import { Bar, Btn, Card, Hearts, StreakBadge, Ring, SectionTitle } from "@/components/ui";
+import ContinentIcon from "@/components/ContinentIcon";
+import Mascot from "@/components/Mascot";
+import {
+  BoltIcon,
+  CompassIcon,
+  FreezeIcon,
+  MedalIcon,
+  Spinner,
+  TargetIcon,
+  TrophyIcon,
+} from "@/components/icons";
 
 const fadeUp = {
   initial: { opacity: 0, y: 14 },
@@ -38,13 +49,7 @@ export default function Home() {
   if (!ready || !state.prefs.onboarded) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-          className="text-4xl"
-        >
-          🌍
-        </motion.div>
+        <Spinner />
       </div>
     );
   }
@@ -60,12 +65,15 @@ export default function Home() {
   return (
     <div className="safe-bottom px-4 pt-5">
       {/* Header */}
-      <motion.header {...fadeUp} className="mb-4 flex items-start justify-between">
-        <div>
-          <p className="text-sm font-bold text-ink-soft">{greeting}, Explorer</p>
-          <h1 className="font-display text-3xl font-extrabold">Atlas Sprint</h1>
+      <motion.header {...fadeUp} className="mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Mascot size={52} float={false} />
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-sub">{greeting}</p>
+            <h1 className="text-2xl font-extrabold leading-tight">Atlas Sprint</h1>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-end gap-1.5">
           <StreakBadge streak={state.streak} freezes={state.freezes} />
           <Hearts count={state.hearts} compact />
         </div>
@@ -73,31 +81,35 @@ export default function Home() {
 
       {/* Notices */}
       {state.brokenStreak > 0 && (
-        <motion.div {...fadeUp} className="mb-3 rounded-2xl border-2 border-sand bg-white p-3 text-sm font-bold">
-          💔 Your {state.brokenStreak}-day streak slipped away. Today is a fresh start — one round brings it back.
+        <motion.div {...fadeUp} className="mb-3 flex items-center gap-3 rounded-2xl border-2 border-line bg-white p-3 text-sm font-bold">
+          <Mascot size={40} pose="sad" float={false} />
+          <span>
+            Your {state.brokenStreak}-day streak slipped away. One round today starts a new one.
+          </span>
         </motion.div>
       )}
       {state.freezeJustUsed && (
-        <motion.div {...fadeUp} className="mb-3 rounded-2xl border-2 border-sky/40 bg-white p-3 text-sm font-bold">
-          🧊 A streak freeze saved your {state.streak}-day streak. Keep it alive today!
+        <motion.div {...fadeUp} className="mb-3 flex items-center gap-3 rounded-2xl border-2 border-blue bg-blue-light p-3 text-sm font-bold text-blue-dark">
+          <FreezeIcon size={28} />
+          <span>A streak freeze saved your {state.streak}-day streak. Keep it alive today.</span>
         </motion.div>
       )}
 
       {/* Level / XP */}
       <motion.div {...fadeUp} transition={{ delay: 0.05 }}>
         <Card className="mb-4 flex items-center gap-4 p-4">
-          <Ring value={lvl.into / lvl.span} tone="#FF6B4A" size={62}>
-            <span className="font-display text-lg font-extrabold">{lvl.level}</span>
+          <Ring value={lvl.into / lvl.span} size={62}>
+            <span className="text-lg font-extrabold text-brand-dark">{lvl.level}</span>
           </Ring>
           <div className="flex-1">
-            <div className="mb-1 flex items-baseline justify-between">
-              <p className="font-display text-base font-extrabold">Level {lvl.level}</p>
-              <p className="text-xs font-bold text-ink-soft">
+            <div className="mb-1.5 flex items-baseline justify-between">
+              <p className="font-extrabold">Level {lvl.level}</p>
+              <p className="text-xs font-bold text-sub">
                 {lvl.into}/{lvl.span} XP
               </p>
             </div>
-            <Bar value={lvl.into / lvl.span} tone="#FF6B4A" />
-            <p className="mt-1 text-xs font-bold text-ink-soft">{state.xp} XP total</p>
+            <Bar value={lvl.into / lvl.span} />
+            <p className="mt-1.5 text-xs font-bold text-sub">{state.xp} XP total</p>
           </div>
         </Card>
       </motion.div>
@@ -105,35 +117,31 @@ export default function Home() {
       {/* Daily challenge hero */}
       <motion.div {...fadeUp} transition={{ delay: 0.1 }}>
         <div
-          className={`mb-4 overflow-hidden rounded-3xl p-5 text-white shadow-[0_6px_0_rgba(0,0,0,0.15)] ${
-            dailyDone ? "bg-teal" : "bg-coral"
+          className={`mb-4 overflow-hidden rounded-2xl p-5 ${
+            dailyDone
+              ? "border-2 border-brand bg-brand-tint"
+              : "bg-brand text-white shadow-[0_4px_0_#008F88]"
           }`}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-extrabold uppercase tracking-wide opacity-90">
+              <p className={`text-xs font-extrabold uppercase tracking-widest ${dailyDone ? "text-brand-dark" : "text-white/80"}`}>
                 Daily Challenge
               </p>
-              <h2 className="font-display text-2xl font-extrabold leading-tight">
-                {dailyDone ? "Done for today 🎉" : "10 questions. One world."}
+              <h2 className={`mt-0.5 text-xl font-extrabold leading-tight ${dailyDone ? "text-brand-deep" : ""}`}>
+                {dailyDone ? "Done for today" : "10 questions. One world."}
               </h2>
-              <p className="mt-1 text-sm font-bold opacity-90">
+              <p className={`mt-1 text-sm font-bold ${dailyDone ? "text-brand-dark" : "text-white/85"}`}>
                 {dailyDone
                   ? nextMilestone
-                    ? `${nextMilestone - state.streak} days to the ${nextMilestone}-day milestone.`
+                    ? `${nextMilestone - state.streak} day${nextMilestone - state.streak > 1 ? "s" : ""} to the ${nextMilestone}-day milestone.`
                     : "Legendary streak. See you tomorrow."
                   : state.streak > 0
                     ? `One round keeps the ${state.streak}-day streak going.`
                     : "Start a streak today."}
               </p>
             </div>
-            <motion.span
-              animate={{ y: [0, -6, 0] }}
-              transition={{ repeat: Infinity, duration: 2.4, ease: "easeInOut" }}
-              className="text-5xl"
-            >
-              {dailyDone ? "🏅" : "🌍"}
-            </motion.span>
+            {dailyDone ? <MedalIcon size={52} /> : <Mascot size={72} pose="happy" />}
           </div>
           {!dailyDone && (
             <Link href="/play?mode=daily">
@@ -146,21 +154,21 @@ export default function Home() {
       </motion.div>
 
       {/* Quick actions */}
-      <motion.div {...fadeUp} transition={{ delay: 0.15 }} className="mb-4 grid grid-cols-2 gap-3">
+      <motion.div {...fadeUp} transition={{ delay: 0.15 }} className="mb-5 grid grid-cols-2 gap-3">
         <Link href="/play?mode=sprint">
-          <Card className="h-full p-4">
-            <span className="text-2xl">⚡</span>
-            <p className="mt-1 font-display text-base font-extrabold">Sprint</p>
-            <p className="text-xs font-bold text-ink-soft">
+          <Card onClick={() => {}} className="h-full w-full p-4">
+            <BoltIcon size={28} />
+            <p className="mt-1.5 font-extrabold">Sprint</p>
+            <p className="text-xs font-bold text-sub">
               {state.sprintBest > 0 ? `Best: ${state.sprintBest}` : "60s score attack"}
             </p>
           </Card>
         </Link>
         <Link href="/review">
-          <Card className="h-full p-4">
-            <span className="text-2xl">🎯</span>
-            <p className="mt-1 font-display text-base font-extrabold">Review</p>
-            <p className="text-xs font-bold text-ink-soft">
+          <Card onClick={() => {}} className="h-full w-full p-4">
+            <TargetIcon size={28} />
+            <p className="mt-1.5 font-extrabold">Review</p>
+            <p className="text-xs font-bold text-sub">
               {weakCount > 0 ? `${weakCount} weak spot${weakCount > 1 ? "s" : ""}` : "All clear"}
             </p>
           </Card>
@@ -168,26 +176,27 @@ export default function Home() {
       </motion.div>
 
       {/* Continents */}
-      <motion.div {...fadeUp} transition={{ delay: 0.2 }} className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="font-display text-lg font-extrabold">Continents</h3>
-          <Link href="/learn" className="text-sm font-extrabold text-coral">
-            See all →
-          </Link>
-        </div>
+      <motion.div {...fadeUp} transition={{ delay: 0.2 }} className="mb-5">
+        <SectionTitle
+          action={
+            <Link href="/learn" className="text-sm font-extrabold uppercase tracking-wide text-brand">
+              See all
+            </Link>
+          }
+        >
+          Continents
+        </SectionTitle>
         <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
           {CONTINENTS.map((cont) => {
             const meta = CONTINENT_META[cont];
             const prog = continentProgress(state, cont);
             return (
               <Link key={cont} href={`/learn?open=${encodeURIComponent(cont)}`}>
-                <Card className="w-36 shrink-0 p-3">
-                  <span className="text-2xl">{meta.emoji}</span>
-                  <p className="mt-1 truncate font-display text-sm font-extrabold">{cont}</p>
-                  <Bar value={prog} tone={meta.color} height={7} className="mt-2" />
-                  <p className="mt-1 text-[11px] font-bold text-ink-soft">
-                    {Math.round(prog * 100)}% strong
-                  </p>
+                <Card onClick={() => {}} className="w-36 shrink-0 p-3">
+                  <ContinentIcon continent={cont} size={40} />
+                  <p className="mt-1.5 truncate text-sm font-extrabold">{cont}</p>
+                  <Bar value={prog} tone={meta.color} height={8} className="mt-2" />
+                  <p className="mt-1 text-[11px] font-bold text-sub">{Math.round(prog * 100)}% strong</p>
                 </Card>
               </Link>
             );
@@ -198,39 +207,41 @@ export default function Home() {
       {/* Sandbox + Top 10 */}
       <motion.div {...fadeUp} transition={{ delay: 0.25 }} className="mb-4 grid grid-cols-2 gap-3">
         <Link href="/sandbox">
-          <Card className="h-full bg-gradient-to-br from-white to-ocean p-4">
-            <span className="text-2xl">🧭</span>
-            <p className="mt-1 font-display text-base font-extrabold">Explore</p>
-            <p className="text-xs font-bold text-ink-soft">No pressure. Just play.</p>
+          <Card onClick={() => {}} className="h-full w-full p-4">
+            <CompassIcon size={28} active />
+            <p className="mt-1.5 font-extrabold">Explore</p>
+            <p className="text-xs font-bold text-sub">No pressure. Just play.</p>
           </Card>
         </Link>
         <Link href="/rankings">
-          <Card className="h-full bg-gradient-to-br from-white to-[#FFF3D6] p-4">
-            <span className="text-2xl">🏆</span>
-            <p className="mt-1 font-display text-base font-extrabold">Top 10</p>
-            <p className="text-xs font-bold text-ink-soft">Rank the giants.</p>
+          <Card onClick={() => {}} className="h-full w-full p-4">
+            <TrophyIcon size={28} />
+            <p className="mt-1.5 font-extrabold">Top 10</p>
+            <p className="text-xs font-bold text-sub">Rank the giants.</p>
           </Card>
         </Link>
       </motion.div>
 
       {/* Badges preview */}
       <motion.div {...fadeUp} transition={{ delay: 0.3 }}>
-        <Card className="mb-2 flex items-center justify-between p-4">
-          <div>
-            <p className="font-display text-base font-extrabold">Badges</p>
-            <p className="text-xs font-bold text-ink-soft">
-              {badges.length} earned
-            </p>
-          </div>
-          <div className="flex -space-x-1 text-2xl">
-            {badges.slice(0, 4).map((b) => (
-              <span key={b.id} title={b.name}>
-                {b.emoji}
-              </span>
-            ))}
-            {badges.length === 0 && <span className="text-sm font-bold text-ink-soft">Play to earn ✨</span>}
-          </div>
-        </Card>
+        <Link href="/stats">
+          <Card onClick={() => {}} className="mb-2 flex w-full items-center justify-between p-4">
+            <div>
+              <p className="font-extrabold">Badges</p>
+              <p className="text-xs font-bold text-sub">{badges.length} earned</p>
+            </div>
+            <div className="flex items-center gap-1">
+              {badges.length > 0 ? (
+                <>
+                  <MedalIcon size={26} />
+                  <span className="text-sm font-extrabold text-sub">×{badges.length}</span>
+                </>
+              ) : (
+                <span className="text-sm font-bold text-sub">Play to earn</span>
+              )}
+            </div>
+          </Card>
+        </Link>
       </motion.div>
     </div>
   );

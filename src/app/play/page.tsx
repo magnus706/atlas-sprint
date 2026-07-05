@@ -14,14 +14,24 @@ import {
 } from "@/lib/engine";
 import { useProgress } from "@/lib/store";
 import { dayKey } from "@/lib/format";
-import { byId, byNumeric, CONTINENT_META, ofContinent, type Continent } from "@/data/countries";
+import { byId, CONTINENT_META, ofContinent, type Continent } from "@/data/countries";
 import { fmtArea, fmtPop } from "@/lib/format";
 import { sfx } from "@/lib/sfx";
 import Flag from "@/components/Flag";
 import CountryShape from "@/components/CountryShape";
 import WorldMap, { type TileState } from "@/components/WorldMap";
 import SessionComplete, { type SessionResult } from "@/components/SessionComplete";
+import Mascot from "@/components/Mascot";
+import ContinentIcon from "@/components/ContinentIcon";
 import { Bar, Btn, Hearts } from "@/components/ui";
+import {
+  BoltIcon,
+  CheckIcon,
+  CrossIcon,
+  FlameIcon,
+  PinIcon,
+  Spinner,
+} from "@/components/icons";
 
 const CORRECT_MSGS = ["Nice one.", "Sharp.", "Locked in.", "Clean.", "You're on a roll."];
 const SPRINT_SECONDS = 60;
@@ -65,11 +75,6 @@ function PlayInner() {
     if (!ready) return;
     const count =
       mode === "daily" ? 10 : mode === "sprint" ? 80 : mode === "rankings" ? 8 : paceCount;
-    const focusSkill =
-      mode === "learn" && skill === "mix" && state.prefs.focus !== "world"
-        ? undefined // mixed but engine already varies; keep mix
-        : undefined;
-    void focusSkill;
     const reviewKeys = Object.keys(state.reviewQueue);
     setSession(
       generateSession({
@@ -185,13 +190,7 @@ function PlayInner() {
   if (!ready || !session) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <motion.span
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 1.6, ease: "linear" }}
-          className="text-4xl"
-        >
-          🌍
-        </motion.span>
+        <Spinner />
       </div>
     );
   }
@@ -212,9 +211,8 @@ function PlayInner() {
 
   // ---------- intro splash ----------
   if (phase === "intro") {
-    const meta =
-      continent !== "World" && mode === "learn" ? CONTINENT_META[continent as Continent] : null;
-    const introEmoji = mode === "sprint" ? "⚡" : mode === "daily" ? "🌍" : meta?.emoji ?? "🌍";
+    const isLearnContinent = continent !== "World" && mode === "learn";
+    const meta = isLearnContinent ? CONTINENT_META[continent as Continent] : null;
     const introTitle =
       mode === "sprint" ? "Sprint" : mode === "daily" ? "Daily Challenge" : `${continent}`;
     const introSub =
@@ -227,25 +225,24 @@ function PlayInner() {
             : "A mixed round from across the whole world.";
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-        <motion.span
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 240, damping: 16 }}
-          className="text-7xl"
-        >
-          {introEmoji}
-        </motion.span>
-        <h1 className="mt-4 font-display text-3xl font-extrabold">{introTitle}</h1>
-        <p className="mt-2 max-w-xs text-sm font-bold text-ink-soft">{introSub}</p>
+        {mode === "sprint" ? (
+          <BoltIcon size={80} />
+        ) : isLearnContinent ? (
+          <ContinentIcon continent={continent as Continent} size={96} />
+        ) : (
+          <Mascot size={140} pose="happy" />
+        )}
+        <h1 className="mt-5 text-3xl font-extrabold">{introTitle}</h1>
+        <p className="mt-2 max-w-xs text-sm font-bold text-sub">{introSub}</p>
         {mode === "sprint" && state.sprintBest > 0 && (
-          <p className="mt-2 rounded-full border-2 border-sand bg-white px-3 py-1 text-sm font-extrabold">
-            🏅 Your best: {state.sprintBest}
+          <p className="mt-3 rounded-xl border-2 border-line bg-white px-3 py-1.5 text-sm font-extrabold">
+            Your best: {state.sprintBest}
           </p>
         )}
         <Btn className="mt-8 w-full max-w-xs" onClick={() => { sfx.tap(); setPhase("question"); }}>
-          {mode === "sprint" ? "Start the clock ⏱️" : "Start"}
+          {mode === "sprint" ? "Start the clock" : "Start"}
         </Btn>
-        <Link href="/" className="mt-4 text-sm font-extrabold text-ink-soft">
+        <Link href="/" className="mt-5 text-sm font-extrabold uppercase tracking-wide text-sub">
           Not now
         </Link>
       </div>
@@ -257,24 +254,32 @@ function PlayInner() {
   // ---------- header ----------
   const header = (
     <div className="mb-4 flex items-center gap-3">
-      <Link href="/" className="rounded-full border-2 border-sand bg-white px-3 py-1.5 text-sm font-extrabold">
-        ✕
+      <Link
+        href="/"
+        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-line bg-white text-sub"
+        aria-label="Quit"
+      >
+        <CrossIcon size={16} />
       </Link>
       {mode === "sprint" ? (
         <>
           <div className="flex-1">
-            <Bar value={timeLeft / SPRINT_SECONDS} tone={timeLeft <= 10 ? "#FF5D8F" : "#4CC9F0"} />
+            <Bar value={timeLeft / SPRINT_SECONDS} tone={timeLeft <= 10 ? "#FF4B4B" : "#1CB0F6"} />
           </div>
-          <span className={`w-10 text-right font-display text-lg font-extrabold ${timeLeft <= 10 ? "text-rose" : ""}`}>
+          <span className={`w-10 text-right text-lg font-extrabold ${timeLeft <= 10 ? "text-red" : "text-blue-dark"}`}>
             {timeLeft}
           </span>
         </>
       ) : (
         <>
           <div className="flex-1">
-            <Bar value={(idx + (phase === "feedback" ? 1 : 0)) / (total || 1)} tone="#FF6B4A" />
+            <Bar value={(idx + (phase === "feedback" ? 1 : 0)) / (total || 1)} />
           </div>
-          {usesHearts ? <Hearts count={state.hearts} compact /> : <span className="text-xs font-extrabold text-ink-soft">FREE PLAY</span>}
+          {usesHearts ? (
+            <Hearts count={state.hearts} compact />
+          ) : (
+            <span className="text-[11px] font-extrabold uppercase tracking-wide text-sub">Free play</span>
+          )}
         </>
       )}
     </div>
@@ -282,7 +287,7 @@ function PlayInner() {
 
   // ---------- combo + score strip ----------
   const strip = (
-    <div className="mb-2 flex h-8 items-center justify-between">
+    <div className="mb-2 flex h-9 items-center justify-between">
       <AnimatePresence>
         {combo >= 3 && (
           <motion.span
@@ -290,9 +295,10 @@ function PlayInner() {
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="rounded-full bg-sun px-3 py-1 font-display text-sm font-extrabold text-ink shadow-[0_3px_0_#E0A420]"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-yellow px-3 py-1.5 text-sm font-extrabold text-ink shadow-[0_3px_0_#D6A800]"
           >
-            🔥 {combo} combo
+            <FlameIcon size={16} />
+            {combo} combo
           </motion.span>
         )}
       </AnimatePresence>
@@ -301,7 +307,7 @@ function PlayInner() {
           key={score}
           initial={{ scale: 1.25 }}
           animate={{ scale: 1 }}
-          className="ml-auto font-display text-xl font-extrabold text-grape"
+          className="ml-auto text-xl font-extrabold text-blue-dark"
         >
           {score}
         </motion.span>
@@ -321,32 +327,32 @@ function PlayInner() {
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
         className="flex flex-1 flex-col"
       >
-          {q.kind === "mc" && (
-            <McQuestion q={q} picked={picked} phase={phase} onPick={(id) => finishAnswer(id === q.answer, id)} />
-          )}
-          {q.kind === "map" && (
-            <MapQuestion
-              q={q}
-              phase={phase}
-              mapStates={mapStates}
-              onTap={(numeric) => {
-                const target = byId.get(q.countryId)!.numeric;
-                const right = numeric === target;
-                setMapStates(
-                  right
-                    ? { [target]: "correct" }
-                    : { [numeric]: "wrong", [target]: "target" }
-                );
-                finishAnswer(right, numeric);
-              }}
-            />
-          )}
-          {q.kind === "order" && (
-            <OrderQuestion q={q} phase={phase} onDone={(right) => finishAnswer(right, null)} />
-          )}
+        {q.kind === "mc" && (
+          <McQuestion q={q} picked={picked} phase={phase} onPick={(id) => finishAnswer(id === q.answer, id)} />
+        )}
+        {q.kind === "map" && (
+          <MapQuestion
+            q={q}
+            phase={phase}
+            mapStates={mapStates}
+            onTap={(numeric) => {
+              const target = byId.get(q.countryId)!.numeric;
+              const right = numeric === target;
+              setMapStates(
+                right
+                  ? { [target]: "correct" }
+                  : { [numeric]: "wrong", [target]: "target" }
+              );
+              finishAnswer(right, numeric);
+            }}
+          />
+        )}
+        {q.kind === "order" && (
+          <OrderQuestion q={q} phase={phase} onDone={(right) => finishAnswer(right, null)} />
+        )}
       </motion.div>
 
-      {/* Feedback banner */}
+      {/* Feedback banner — Duolingo-style light band */}
       <AnimatePresence>
         {phase === "feedback" && (
           <motion.div
@@ -354,21 +360,30 @@ function PlayInner() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 90, opacity: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 34 }}
-            className={`fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md rounded-t-3xl p-4 pb-6 ${
-              lastRight ? "bg-mint" : "bg-rose"
+            className={`fixed inset-x-0 bottom-0 z-40 border-t-2 ${
+              lastRight ? "border-brand bg-brand-light" : "border-red bg-red-light"
             }`}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-white">
-                <p className="font-display text-lg font-extrabold">
-                  {lastRight
-                    ? CORRECT_MSGS[results.length % CORRECT_MSGS.length]
-                    : "Close — let's fix that."}
-                </p>
-                {!lastRight && <CorrectAnswerLine q={q} />}
+            <div className="mx-auto flex max-w-md items-center justify-between gap-3 p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+                    lastRight ? "bg-brand text-white" : "bg-red text-white"
+                  }`}
+                >
+                  {lastRight ? <CheckIcon size={22} /> : <CrossIcon size={18} />}
+                </span>
+                <div className={lastRight ? "text-brand-deep" : "text-red-dark"}>
+                  <p className="text-lg font-extrabold leading-tight">
+                    {lastRight
+                      ? CORRECT_MSGS[results.length % CORRECT_MSGS.length]
+                      : "Close — let's fix that."}
+                  </p>
+                  {!lastRight && <CorrectAnswerLine q={q} />}
+                </div>
               </div>
               {!lastRight && mode !== "sprint" && (
-                <Btn tone="white" size="md" onClick={() => advance(idx)}>
+                <Btn tone="red" size="md" onClick={() => advance(idx)}>
                   Continue
                 </Btn>
               )}
@@ -386,9 +401,7 @@ function CorrectAnswerLine({ q }: { q: Question }) {
       .map((id) => byId.get(id)!)
       .sort((a, b) => b[q.metric!] - a[q.metric!]);
     return (
-      <p className="text-sm font-bold text-white/90">
-        {sorted.map((c) => c.name).join(" → ")}
-      </p>
+      <p className="text-sm font-bold opacity-80">{sorted.map((c) => c.name).join(" → ")}</p>
     );
   }
   const c = byId.get(q.countryId);
@@ -399,7 +412,7 @@ function CorrectAnswerLine({ q }: { q: Question }) {
       : q.kind === "map"
         ? `That's where ${c.name} is — now you know.`
         : q.options?.find((o) => o.id === q.answer)?.label ?? c.name;
-  return <p className="text-sm font-bold text-white/90">Answer: {label}</p>;
+  return <p className="text-sm font-bold opacity-80">Answer: {label}</p>;
 }
 
 // ---------- Multiple choice ----------
@@ -418,13 +431,11 @@ function McQuestion({
   const flagOptions = q.options!.some((o) => o.flagOf);
   return (
     <div className="flex flex-1 flex-col">
-      <h2 className="mb-4 text-center font-display text-2xl font-extrabold leading-tight">
-        {q.prompt}
-      </h2>
+      <h2 className="mb-4 text-center text-2xl font-extrabold leading-tight">{q.prompt}</h2>
 
       {q.media?.type === "flag" && q.skill !== "capital" && (
         <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
+          initial={{ scale: 0.85, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className="mb-5 flex justify-center"
         >
@@ -433,11 +444,11 @@ function McQuestion({
       )}
       {q.media?.type === "shape" && (
         <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
+          initial={{ scale: 0.85, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="mb-4 flex justify-center rounded-3xl bg-white p-3 border-2 border-sand"
+          className="mb-4 flex justify-center rounded-2xl border-2 border-line bg-panel p-3"
         >
-          <CountryShape countryId={q.media.countryId} height={150} />
+          <CountryShape countryId={q.media.countryId} height={150} fill="#B968F0" />
         </motion.div>
       )}
 
@@ -448,18 +459,18 @@ function McQuestion({
           const showState = phase === "feedback";
           const cls = showState
             ? isAnswer
-              ? "border-mint bg-mint/15 text-ink"
+              ? "border-brand bg-brand-light text-brand-deep"
               : isPicked
-                ? "border-rose bg-rose/10 text-ink animate-shake"
-                : "border-sand bg-white opacity-60"
-            : "border-sand bg-white active:translate-y-[2px]";
+                ? "border-red bg-red-light text-red-dark animate-shake"
+                : "border-line bg-white opacity-50"
+            : "border-line bg-white shadow-[0_3px_0_#E5E5E5] active:translate-y-[2px] active:shadow-none";
           return (
             <motion.button
               key={o.id}
-              whileTap={phase === "question" ? { scale: 0.97 } : undefined}
+              whileTap={phase === "question" ? { scale: 0.98 } : undefined}
               disabled={phase !== "question"}
               onClick={() => onPick(o.id)}
-              className={`rounded-2xl border-2 p-4 font-display text-base font-extrabold shadow-card transition-colors ${cls}`}
+              className={`rounded-2xl border-2 p-4 text-base font-extrabold transition-colors ${cls}`}
             >
               {o.flagOf ? (
                 <span className="flex items-center justify-center">
@@ -468,7 +479,6 @@ function McQuestion({
               ) : (
                 o.label
               )}
-              {showState && isAnswer && <span className="ml-2">✓</span>}
             </motion.button>
           );
         })}
@@ -492,17 +502,19 @@ function MapQuestion({
 }) {
   return (
     <div className="flex flex-1 flex-col">
-      <h2 className="mb-1 text-center font-display text-2xl font-extrabold">{q.prompt}</h2>
-      <p className="mb-4 text-center text-sm font-bold text-ink-soft">📍 {q.sub}</p>
+      <h2 className="mb-1 text-center text-2xl font-extrabold">{q.prompt}</h2>
+      <p className="mb-4 flex items-center justify-center gap-1 text-center text-sm font-bold text-sub">
+        <PinIcon size={16} /> {q.sub}
+      </p>
       <WorldMap
         focus={q.continent ?? "World"}
         height={340}
         states={mapStates}
         onTap={phase === "question" ? onTap : undefined}
-        className="border-2 border-sand"
+        className="border-2 border-line"
       />
-      <p className="mt-3 text-center text-xs font-bold text-ink-soft">
-        Tap the highlighted region's country
+      <p className="mt-3 text-center text-xs font-bold text-sub">
+        Tap the sand-colored country you're looking for
       </p>
     </div>
   );
@@ -535,29 +547,28 @@ function OrderQuestion({
 
   return (
     <div className="flex flex-1 flex-col">
-      <h2 className="mb-1 text-center font-display text-2xl font-extrabold">{q.prompt}</h2>
-      <p className="mb-4 text-center text-sm font-bold text-ink-soft">{q.sub}</p>
+      <h2 className="mb-1 text-center text-2xl font-extrabold">{q.prompt}</h2>
+      <p className="mb-4 text-center text-sm font-bold text-sub">{q.sub}</p>
 
       <div className="flex flex-col gap-3">
         {(done ? correct : q.orderIds!).map((id, i) => {
           const c = byId.get(id)!;
           const pos = order.indexOf(id);
-          const userPos = order.indexOf(id);
-          const wasRight = done && q.orderIds && userPos === i;
+          const wasRight = done && q.orderIds && order.indexOf(id) === i;
           return (
             <motion.button
               key={id}
               layout
-              whileTap={!done ? { scale: 0.97 } : undefined}
+              whileTap={!done ? { scale: 0.98 } : undefined}
               onClick={!done ? () => toggle(id) : undefined}
-              className={`relative overflow-hidden rounded-2xl border-2 p-4 text-left font-display font-extrabold shadow-card ${
+              className={`relative overflow-hidden rounded-2xl border-2 p-4 text-left font-extrabold ${
                 done
                   ? wasRight
-                    ? "border-mint bg-white"
-                    : "border-sand bg-white"
+                    ? "border-brand bg-white"
+                    : "border-line bg-white"
                   : pos >= 0
-                    ? "border-grape bg-grape/10"
-                    : "border-sand bg-white"
+                    ? "border-purple bg-purple-light"
+                    : "border-line bg-white shadow-[0_3px_0_#E5E5E5]"
               }`}
             >
               {done && (
@@ -565,17 +576,13 @@ function OrderQuestion({
                   initial={{ width: 0 }}
                   animate={{ width: `${(c[q.metric!] / maxVal) * 100}%` }}
                   transition={{ delay: 0.15 * i, type: "spring", stiffness: 80, damping: 20 }}
-                  className="absolute inset-y-0 left-0 bg-grape/15"
+                  className="absolute inset-y-0 left-0 bg-purple-light"
                 />
               )}
               <span className="relative flex items-center gap-3">
                 <span
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${
-                    done
-                      ? "bg-grape text-white"
-                      : pos >= 0
-                        ? "bg-grape text-white"
-                        : "bg-sand text-ink-soft"
+                    done || pos >= 0 ? "bg-purple text-white" : "bg-line text-sub"
                   }`}
                 >
                   {done ? i + 1 : pos >= 0 ? pos + 1 : "·"}
@@ -583,7 +590,7 @@ function OrderQuestion({
                 <Flag countryId={id} size="sm" />
                 <span className="flex-1">{c.name}</span>
                 {done && (
-                  <span className="text-xs font-bold text-ink-soft">
+                  <span className="text-xs font-bold text-sub">
                     {q.metric === "pop" ? fmtPop(c.pop) : fmtArea(c.area)}
                   </span>
                 )}
@@ -597,6 +604,7 @@ function OrderQuestion({
         <div className="mt-auto pt-4">
           <Btn
             full
+            tone="purple"
             disabled={order.length !== q.orderIds!.length}
             onClick={() => onDone(order.join(",") === correct.join(","))}
           >
@@ -614,7 +622,9 @@ export default function PlayPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-dvh items-center justify-center text-4xl">🌍</div>
+        <div className="flex min-h-dvh items-center justify-center">
+          <Spinner />
+        </div>
       }
     >
       <PlayInner />

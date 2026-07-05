@@ -7,7 +7,9 @@ import { useProgress } from "@/lib/store";
 import { byId } from "@/data/countries";
 import { SKILL_META, type Skill } from "@/lib/engine";
 import Flag from "@/components/Flag";
+import Mascot from "@/components/Mascot";
 import { Btn, Card } from "@/components/ui";
+import { SkillIcon } from "@/components/icons";
 
 export default function ReviewPage() {
   const { state, ready } = useProgress();
@@ -28,8 +30,8 @@ export default function ReviewPage() {
 
   return (
     <div className="safe-bottom px-4 pt-6">
-      <h1 className="mb-1 font-display text-3xl font-extrabold">Review</h1>
-      <p className="mb-5 text-sm font-bold text-ink-soft">
+      <h1 className="mb-1 text-3xl font-extrabold">Review</h1>
+      <p className="mb-5 text-sm font-bold text-sub">
         {items.length > 0
           ? "These tripped you up. Two clean answers clear each one."
           : "Mistakes land here so you can crush them later."}
@@ -37,26 +39,20 @@ export default function ReviewPage() {
 
       {items.length === 0 ? (
         <Card className="flex flex-col items-center p-8 text-center">
-          <motion.span
-            animate={{ rotate: [0, 10, -10, 0] }}
-            transition={{ repeat: Infinity, duration: 3 }}
-            className="text-5xl"
-          >
-            🕊️
-          </motion.span>
-          <p className="mt-3 font-display text-lg font-extrabold">All clear</p>
-          <p className="mt-1 text-sm font-bold text-ink-soft">
+          <Mascot size={110} pose="happy" />
+          <p className="mt-3 text-lg font-extrabold">All clear</p>
+          <p className="mt-1 text-sm font-bold text-sub">
             No weak spots right now. Play a round and see if it stays that way.
           </p>
           <Link href="/play?mode=daily" className="mt-4 w-full">
-            <Btn full tone="teal">Play a round</Btn>
+            <Btn full>Play a round</Btn>
           </Link>
         </Card>
       ) : (
         <>
           <Link href="/play?mode=review">
             <Btn full className="mb-4">
-              Fix {items.length} weak spot{items.length > 1 ? "s" : ""} 🎯
+              Fix {items.length} weak spot{items.length > 1 ? "s" : ""}
             </Btn>
           </Link>
           <div className="flex flex-col gap-3">
@@ -72,18 +68,19 @@ export default function ReviewPage() {
                   <Card className="flex items-center gap-3 p-4">
                     <Flag countryId={id} size="md" className="!h-9 !w-14" />
                     <div className="flex-1">
-                      <p className="font-display text-base font-extrabold">{c.name}</p>
-                      <p className="text-xs font-bold text-ink-soft">
+                      <p className="font-extrabold">{c.name}</p>
+                      <p className="text-xs font-bold text-sub">
                         {c.capital} · {c.continent}
                       </p>
                     </div>
-                    <div className="flex flex-wrap justify-end gap-1">
+                    <div className="flex flex-wrap justify-end gap-1.5">
                       {skills.map((s) => (
                         <span
                           key={s.skill}
-                          className="rounded-full bg-rose/10 px-2 py-1 text-[11px] font-extrabold text-rose"
+                          className="inline-flex items-center gap-1 rounded-lg bg-red-light px-2 py-1 text-[11px] font-extrabold text-red-dark"
+                          title={SKILL_META[s.skill].label}
                         >
-                          {SKILL_META[s.skill].emoji} ×{s.misses}
+                          <SkillIcon skill={s.skill} size={13} /> ×{s.misses}
                         </span>
                       ))}
                     </div>

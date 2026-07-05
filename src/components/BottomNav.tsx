@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { CompassIcon, HomeIcon, MapIcon, PodiumIcon, ProfileIcon } from "./icons";
 
 const TABS = [
-  { href: "/", label: "Home", emoji: "🏠" },
-  { href: "/learn", label: "Learn", emoji: "🗺️" },
-  { href: "/sandbox", label: "Explore", emoji: "🧭" },
-  { href: "/rankings", label: "Top 10", emoji: "🏆" },
-  { href: "/stats", label: "You", emoji: "⭐" },
+  { href: "/", label: "Home", Icon: HomeIcon },
+  { href: "/learn", label: "Learn", Icon: MapIcon },
+  { href: "/sandbox", label: "Explore", Icon: CompassIcon },
+  { href: "/rankings", label: "Top 10", Icon: PodiumIcon },
+  { href: "/stats", label: "You", Icon: ProfileIcon },
 ];
 
 const HIDDEN = ["/play", "/onboarding"];
@@ -18,23 +19,21 @@ export default function BottomNav() {
   if (HIDDEN.some((h) => path.startsWith(h))) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md px-3 pb-3">
-      <div className="flex items-center justify-between rounded-3xl border-2 border-sand bg-white/95 px-2 py-1.5 shadow-[0_4px_0_#EFE0CA] backdrop-blur">
-        {TABS.map((t) => {
-          const active = t.href === "/" ? path === "/" : path.startsWith(t.href);
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-line bg-white">
+      <div className="mx-auto flex max-w-md items-stretch justify-between px-2 py-1.5 pb-[max(6px,env(safe-area-inset-bottom))]">
+        {TABS.map(({ href, label, Icon }) => {
+          const active = href === "/" ? path === "/" : path.startsWith(href);
           return (
-            <Link key={t.href} href={t.href} className="relative flex-1">
-              <motion.div whileTap={{ scale: 0.9 }} className="relative flex flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5">
-                {active && (
-                  <motion.div
-                    layoutId="nav-pill"
-                    className="absolute inset-0 rounded-2xl bg-cream"
-                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                  />
-                )}
-                <span className="relative text-xl leading-none">{t.emoji}</span>
-                <span className={`relative text-[10px] font-extrabold ${active ? "text-ink" : "text-ink-soft"}`}>
-                  {t.label}
+            <Link key={href} href={href} className="flex-1">
+              <motion.div
+                whileTap={{ scale: 0.9 }}
+                className={`relative mx-1 flex flex-col items-center gap-0.5 rounded-xl border-2 px-1 py-1.5 ${
+                  active ? "border-brand-light bg-brand-tint" : "border-transparent"
+                }`}
+              >
+                <Icon size={26} active={active} />
+                <span className={`text-[10px] font-extrabold uppercase tracking-wide ${active ? "text-brand-dark" : "text-sub"}`}>
+                  {label}
                 </span>
               </motion.div>
             </Link>

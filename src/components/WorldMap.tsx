@@ -24,10 +24,10 @@ interface Props {
 const W = 400;
 
 const STATE_FILL: Record<TileState, string> = {
-  selected: "#FFC53D",
-  correct: "#3DDC97",
-  wrong: "#FF5D8F",
-  target: "#3DDC97",
+  selected: "#FFC800",
+  correct: "#00B2A9",
+  wrong: "#FF4B4B",
+  target: "#00B2A9",
 };
 
 export default function WorldMap({
@@ -66,14 +66,14 @@ export default function WorldMap({
     const st = states[f.id];
     if (st) return STATE_FILL[st];
     const c = byNumeric.get(f.id);
-    if (!c) return "#EFE3CF"; // not in dataset → muted parchment
-    if (explore) return CONTINENT_META[c.continent].color + "B8";
-    return "#F5D9A8";
+    if (!c) return "#E8E8E8"; // not in dataset → neutral gray
+    if (explore) return CONTINENT_META[c.continent].color + "CC";
+    return "#FFE3A6"; // tappable quiz country → warm sand
   };
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl bg-ocean ${className}`}
+      className={`relative overflow-hidden rounded-2xl bg-blue-light ${className}`}
       style={{ touchAction: "manipulation" }}
     >
       <svg viewBox={`0 0 ${W} ${height}`} className="block h-auto w-full">

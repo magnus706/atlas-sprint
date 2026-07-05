@@ -7,12 +7,12 @@ html {
 }
 
 body {
-  @apply bg-cream text-ink font-sans antialiased;
+  @apply bg-white text-ink font-sans antialiased;
 }
 
 @layer utilities {
   .safe-bottom {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;

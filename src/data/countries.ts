@@ -205,16 +205,13 @@ export const CONTINENTS: Continent[] = [
   "Oceania",
 ];
 
-export const CONTINENT_META: Record<
-  Continent,
-  { emoji: string; tagline: string; color: string }
-> = {
-  Europe: { emoji: "🏰", tagline: "Castles, coastlines, capitals", color: "#4CC9F0" },
-  Asia: { emoji: "⛩️", tagline: "The biggest of everything", color: "#FF5D8F" },
-  Africa: { emoji: "🦁", tagline: "54 nations, endless variety", color: "#FFC53D" },
-  "North America": { emoji: "🗽", tagline: "From tundra to tropics", color: "#7C5CE0" },
-  "South America": { emoji: "🦜", tagline: "Andes, Amazon, and more", color: "#3DDC97" },
-  Oceania: { emoji: "🏝️", tagline: "A continent of islands", color: "#2EC4B6" },
+export const CONTINENT_META: Record<Continent, { tagline: string; color: string; dark: string }> = {
+  Europe: { tagline: "Castles, coastlines, capitals", color: "#1CB0F6", dark: "#1899D6" },
+  Asia: { tagline: "The biggest of everything", color: "#FF4B4B", dark: "#D63A3A" },
+  Africa: { tagline: "54 nations, endless variety", color: "#FFC800", dark: "#D6A800" },
+  "North America": { tagline: "From tundra to tropics", color: "#B968F0", dark: "#9A4ED1" },
+  "South America": { tagline: "Andes, Amazon, and more", color: "#2EC45E", dark: "#26A04E" },
+  Oceania: { tagline: "A continent of islands", color: "#FF9600", dark: "#D67E00" },
 };
 
 export const byId = new Map(COUNTRIES.map((x) => [x.id, x]));

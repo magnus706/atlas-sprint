@@ -14,6 +14,32 @@ import {
 } from "@/lib/store";
 import { CONTINENTS, CONTINENT_META, ofContinent } from "@/data/countries";
 import { Bar, Btn, Card, Ring } from "@/components/ui";
+import ContinentIcon from "@/components/ContinentIcon";
+import {
+  BoltIcon,
+  CrownIcon,
+  FlameIcon,
+  FreezeIcon,
+  LockIcon,
+  MedalIcon,
+  TargetIcon,
+} from "@/components/icons";
+
+// custom badge artwork per badge id
+const BADGE_ICON: Record<string, React.ReactNode> = {
+  first: <MedalIcon size={28} />,
+  sharp: <TargetIcon size={28} />,
+  streak3: <FlameIcon size={28} />,
+  streak7: <FlameIcon size={28} />,
+  streak30: <FlameIcon size={28} />,
+  combo8: <BoltIcon size={28} />,
+  sprint600: <BoltIcon size={28} />,
+  century: <MedalIcon size={28} />,
+  explorer: <MedalIcon size={28} />,
+  atlas25: <MedalIcon size={28} />,
+  master10: <CrownIcon size={28} />,
+  continents: <CrownIcon size={28} />,
+};
 
 export default function StatsPage() {
   const { state, ready, resetAll } = useProgress();
@@ -32,43 +58,42 @@ export default function StatsPage() {
     (m) => masteryState(m) === "Mastered"
   ).length;
 
-  const Stat = ({ label, value, emoji }: { label: string; value: string | number; emoji: string }) => (
-    <div className="rounded-2xl border-2 border-sand bg-white p-3 text-center">
-      <p className="text-lg">{emoji}</p>
-      <p className="font-display text-xl font-extrabold">{value}</p>
-      <p className="text-[11px] font-bold text-ink-soft">{label}</p>
+  const Stat = ({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) => (
+    <div className="rounded-2xl border-2 border-line bg-white p-3 text-center">
+      <div className="flex justify-center">{icon}</div>
+      <p className="mt-1 text-xl font-extrabold">{value}</p>
+      <p className="text-[11px] font-bold text-sub">{label}</p>
     </div>
   );
 
   return (
     <div className="safe-bottom px-4 pt-6">
       <div className="mb-5 flex items-center gap-4">
-        <Ring value={lvl.into / lvl.span} tone="#FF6B4A" size={78} stroke={8}>
-          <span className="font-display text-2xl font-extrabold">{lvl.level}</span>
+        <Ring value={lvl.into / lvl.span} size={78} stroke={8}>
+          <span className="text-2xl font-extrabold text-brand-dark">{lvl.level}</span>
         </Ring>
         <div>
-          <h1 className="font-display text-2xl font-extrabold">Explorer</h1>
-          <p className="text-sm font-bold text-ink-soft">
+          <h1 className="text-2xl font-extrabold">Explorer</h1>
+          <p className="text-sm font-bold text-sub">
             Level {lvl.level} · {state.xp} XP · {masteredCount} mastered
           </p>
         </div>
       </div>
 
       <div className="mb-4 grid grid-cols-3 gap-2">
-        <Stat emoji="🔥" label="Streak" value={state.streak} />
-        <Stat emoji="🏔️" label="Best streak" value={state.bestStreak} />
-        <Stat emoji="🧊" label="Freezes" value={state.freezes} />
-        <Stat emoji="🎯" label="Accuracy" value={`${acc}%`} />
-        <Stat emoji="🎒" label="Rounds" value={state.sessions} />
-        <Stat emoji="⚡" label="Sprint best" value={state.sprintBest} />
+        <Stat icon={<FlameIcon size={22} lit={state.streak > 0} />} label="Streak" value={state.streak} />
+        <Stat icon={<FlameIcon size={22} />} label="Best streak" value={state.bestStreak} />
+        <Stat icon={<FreezeIcon size={22} />} label="Freezes" value={state.freezes} />
+        <Stat icon={<TargetIcon size={22} />} label="Accuracy" value={`${acc}%`} />
+        <Stat icon={<MedalIcon size={22} />} label="Rounds" value={state.sessions} />
+        <Stat icon={<BoltIcon size={22} />} label="Sprint best" value={state.sprintBest} />
       </div>
 
       {state.answers > 0 && (
         <Card className="mb-4 p-4">
-          <p className="mb-1 font-display text-base font-extrabold">Continent report</p>
-          <p className="mb-3 text-xs font-bold text-ink-soft">
-            Strongest: {CONTINENT_META[strongest.cont].emoji} {strongest.cont} · Growth area:{" "}
-            {CONTINENT_META[weakest.cont].emoji} {weakest.cont}
+          <p className="mb-1 font-extrabold">Continent report</p>
+          <p className="mb-3 text-xs font-bold text-sub">
+            Strongest: {strongest.cont} · Growth area: {weakest.cont}
           </p>
           <div className="flex flex-col gap-2.5">
             {contProgress.map(({ cont, p }, i) => (
@@ -78,15 +103,15 @@ export default function StatsPage() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
               >
-                <div className="mb-0.5 flex justify-between text-xs font-extrabold">
-                  <span>
-                    {CONTINENT_META[cont].emoji} {cont}
+                <div className="mb-1 flex items-center justify-between text-xs font-extrabold">
+                  <span className="flex items-center gap-1.5">
+                    <ContinentIcon continent={cont} size={16} /> {cont}
                   </span>
-                  <span className="text-ink-soft">
+                  <span className="text-sub">
                     {Math.round(p * ofContinent(cont).length)}/{ofContinent(cont).length} strong
                   </span>
                 </div>
-                <Bar value={p} tone={CONTINENT_META[cont].color} height={8} />
+                <Bar value={p} tone={CONTINENT_META[cont].color} height={10} />
               </motion.div>
             ))}
           </div>
@@ -94,7 +119,7 @@ export default function StatsPage() {
       )}
 
       <Card className="mb-4 p-4">
-        <p className="mb-3 font-display text-base font-extrabold">
+        <p className="mb-3 font-extrabold">
           Badges · {earned.size}/{BADGES.length}
         </p>
         <div className="grid grid-cols-4 gap-2">
@@ -106,11 +131,11 @@ export default function StatsPage() {
                 whileTap={{ scale: 0.92 }}
                 title={`${b.name} — ${b.desc}`}
                 className={`flex flex-col items-center rounded-2xl border-2 p-2 text-center ${
-                  has ? "border-sun bg-sun/10" : "border-sand bg-cream opacity-50"
+                  has ? "border-yellow bg-yellow-light" : "border-line bg-panel opacity-60"
                 }`}
               >
-                <span className="text-2xl">{has ? b.emoji : "🔒"}</span>
-                <span className="mt-0.5 text-[9px] font-extrabold leading-tight">{b.name}</span>
+                {has ? BADGE_ICON[b.id] ?? <MedalIcon size={28} /> : <LockIcon size={28} />}
+                <span className="mt-1 text-[9px] font-extrabold leading-tight">{b.name}</span>
               </motion.div>
             );
           })}
@@ -120,7 +145,7 @@ export default function StatsPage() {
       {!confirmReset ? (
         <button
           onClick={() => setConfirmReset(true)}
-          className="mx-auto block text-xs font-bold text-ink-soft underline"
+          className="mx-auto block text-xs font-bold text-sub underline"
         >
           Reset all progress
         </button>
@@ -131,15 +156,7 @@ export default function StatsPage() {
             <Btn tone="white" size="md" full onClick={() => setConfirmReset(false)}>
               Keep it
             </Btn>
-            <Btn
-              tone="ink"
-              size="md"
-              full
-              onClick={() => {
-                resetAll();
-                setConfirmReset(false);
-              }}
-            >
+            <Btn tone="red" size="md" full onClick={() => { resetAll(); setConfirmReset(false); }}>
               Reset
             </Btn>
           </div>

@@ -20,7 +20,9 @@ import { SKILL_META, type Skill } from "@/lib/engine";
 import WorldMap from "@/components/WorldMap";
 import Flag from "@/components/Flag";
 import CountryShape from "@/components/CountryShape";
+import ContinentIcon from "@/components/ContinentIcon";
 import { Btn, Card, Chip } from "@/components/ui";
+import { GlobeIcon, PillarIcon, PinIcon, SkillIcon, SparkleIcon } from "@/components/icons";
 import { sfx } from "@/lib/sfx";
 
 type Tab = "map" | "flags" | "practice";
@@ -39,41 +41,47 @@ export default function SandboxPage() {
 
   const flagPool = flagCont === "World" ? COUNTRIES : ofContinent(flagCont);
 
+  const ContChips = ({
+    value,
+    onChange,
+  }: {
+    value: Continent | "World";
+    onChange: (c: Continent | "World") => void;
+  }) => (
+    <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4">
+      <Chip active={value === "World"} onClick={() => onChange("World")} className="whitespace-nowrap">
+        <GlobeIcon size={16} /> World
+      </Chip>
+      {CONTINENTS.map((c) => (
+        <Chip key={c} active={value === c} onClick={() => onChange(c)} className="whitespace-nowrap">
+          <ContinentIcon continent={c} size={16} /> {c}
+        </Chip>
+      ))}
+    </div>
+  );
+
   return (
     <div className="safe-bottom px-4 pt-6">
-      <h1 className="mb-1 font-display text-3xl font-extrabold">Explore</h1>
-      <p className="mb-4 text-sm font-bold text-ink-soft">
-        No hearts. No timer. Just the world.
-      </p>
+      <h1 className="mb-1 text-3xl font-extrabold">Explore</h1>
+      <p className="mb-4 text-sm font-bold text-sub">No hearts. No timer. Just the world.</p>
 
       {/* Tabs */}
       <div className="mb-4 flex gap-2">
-        {(
-          [
-            ["map", "🗺️ Map"],
-            ["flags", "🚩 Flags"],
-            ["practice", "🎮 Practice"],
-          ] as [Tab, string][]
-        ).map(([t, label]) => (
-          <Chip key={t} active={tab === t} onClick={() => { sfx.tap(); setTab(t); }}>
-            {label}
-          </Chip>
-        ))}
+        <Chip active={tab === "map"} onClick={() => { sfx.tap(); setTab("map"); }}>
+          <PinIcon size={16} /> Map
+        </Chip>
+        <Chip active={tab === "flags"} onClick={() => { sfx.tap(); setTab("flags"); }}>
+          <SkillIcon skill="flag" size={16} /> Flags
+        </Chip>
+        <Chip active={tab === "practice"} onClick={() => { sfx.tap(); setTab("practice"); }}>
+          <SparkleIcon size={16} /> Practice
+        </Chip>
       </div>
 
       {/* ---------- MAP ---------- */}
       {tab === "map" && (
         <div>
-          <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4">
-            <Chip active={focus === "World"} onClick={() => setFocus("World")}>
-              🌍 World
-            </Chip>
-            {CONTINENTS.map((c) => (
-              <Chip key={c} active={focus === c} onClick={() => setFocus(c)} className="whitespace-nowrap">
-                {CONTINENT_META[c].emoji} {c}
-              </Chip>
-            ))}
-          </div>
+          <ContChips value={focus} onChange={setFocus} />
           <WorldMap
             focus={focus}
             explore
@@ -86,9 +94,9 @@ export default function SandboxPage() {
                 markExplored(c.id);
               }
             }}
-            className="border-2 border-sand"
+            className="border-2 border-line"
           />
-          <p className="mt-2 text-center text-xs font-bold text-ink-soft">
+          <p className="mt-2 text-center text-xs font-bold text-sub">
             Tap any colored country to inspect it · {state.explored.length} explored
           </p>
         </div>
@@ -97,17 +105,8 @@ export default function SandboxPage() {
       {/* ---------- FLAGS ---------- */}
       {tab === "flags" && (
         <div>
-          <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4">
-            <Chip active={flagCont === "World"} onClick={() => setFlagCont("World")}>
-              🌍 All
-            </Chip>
-            {CONTINENTS.map((c) => (
-              <Chip key={c} active={flagCont === c} onClick={() => setFlagCont(c)} className="whitespace-nowrap">
-                {CONTINENT_META[c].emoji} {c}
-              </Chip>
-            ))}
-          </div>
-          <p className="mb-3 text-xs font-bold text-ink-soft">Tap a flag to reveal the country.</p>
+          <ContChips value={flagCont} onChange={setFlagCont} />
+          <p className="mb-3 text-xs font-bold text-sub">Tap a flag to reveal the country.</p>
           <div className="grid grid-cols-3 gap-2">
             {flagPool.map((c) => (
               <motion.button
@@ -118,7 +117,7 @@ export default function SandboxPage() {
                   setFlipped(flipped === c.id ? null : c.id);
                   markExplored(c.id);
                 }}
-                className="flex h-[74px] flex-col items-center justify-center rounded-2xl border-2 border-sand bg-white p-2"
+                className="flex h-[74px] flex-col items-center justify-center rounded-2xl border-2 border-line bg-white p-2 shadow-[0_2px_0_#E5E5E5]"
               >
                 {flipped === c.id ? (
                   <motion.span
@@ -127,7 +126,7 @@ export default function SandboxPage() {
                     className="text-center"
                   >
                     <span className="block text-[11px] font-extrabold leading-tight">{c.name}</span>
-                    <span className="block text-[10px] font-bold text-ink-soft">{c.capital}</span>
+                    <span className="block text-[10px] font-bold text-sub">{c.capital}</span>
                   </motion.span>
                 ) : (
                   <Flag countryId={c.id} size="sm" className="!h-8 !w-12" />
@@ -142,27 +141,27 @@ export default function SandboxPage() {
       {tab === "practice" && (
         <div>
           <Card className="p-4">
-            <p className="mb-2 font-display text-base font-extrabold">Region</p>
+            <p className="mb-2 font-extrabold">Region</p>
             <div className="mb-4 flex flex-wrap gap-2">
               <Chip active={practiceCont === "World"} onClick={() => setPracticeCont("World")}>
-                🌍 World
+                <GlobeIcon size={16} /> World
               </Chip>
               {CONTINENTS.map((c) => (
                 <Chip key={c} active={practiceCont === c} onClick={() => setPracticeCont(c)}>
-                  {CONTINENT_META[c].emoji} {c}
+                  <ContinentIcon continent={c} size={16} /> {c}
                 </Chip>
               ))}
             </div>
-            <p className="mb-2 font-display text-base font-extrabold">Drill</p>
+            <p className="mb-2 font-extrabold">Drill</p>
             <div className="mb-4 flex flex-wrap gap-2">
               <Chip active={practiceSkill === "mix"} onClick={() => setPracticeSkill("mix")}>
-                ✨ Mix
+                <SparkleIcon size={16} /> Mix
               </Chip>
               {(Object.keys(SKILL_META) as Skill[])
                 .filter((s) => s !== "rank")
                 .map((s) => (
                   <Chip key={s} active={practiceSkill === s} onClick={() => setPracticeSkill(s)}>
-                    {SKILL_META[s].emoji} {SKILL_META[s].label}
+                    <SkillIcon skill={s} size={16} /> {SKILL_META[s].label}
                   </Chip>
                 ))}
             </div>
@@ -171,12 +170,10 @@ export default function SandboxPage() {
                 practiceSkill === "mix" ? "" : `&skill=${practiceSkill}`
               }`}
             >
-              <Btn full tone="teal">
-                Start free practice
-              </Btn>
+              <Btn full>Start free practice</Btn>
             </Link>
           </Card>
-          <p className="mt-3 text-center text-xs font-bold text-ink-soft">
+          <p className="mt-3 text-center text-xs font-bold text-sub">
             Free practice never costs hearts. Mistakes still sharpen your review queue.
           </p>
         </div>
@@ -198,47 +195,48 @@ export default function SandboxPage() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }}
-              className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md rounded-t-3xl bg-cream p-5 pb-8"
+              className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md rounded-t-3xl border-t-2 border-line bg-white p-5 pb-8"
             >
-              <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-sand" />
+              <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-line" />
               <div className="flex items-start gap-4">
                 <Flag countryId={selected.id} size="lg" className="!h-16 !w-24" />
                 <div className="flex-1">
-                  <h2 className="font-display text-2xl font-extrabold">{selected.name}</h2>
-                  <p className="text-sm font-bold text-ink-soft">
-                    {CONTINENT_META[selected.continent].emoji} {selected.continent} ·{" "}
-                    <span className="text-teal-deep">{masteryState(state.mastery[selected.id])}</span>
+                  <h2 className="text-2xl font-extrabold">{selected.name}</h2>
+                  <p className="flex items-center gap-1.5 text-sm font-bold text-sub">
+                    <ContinentIcon continent={selected.continent} size={16} />
+                    {selected.continent} ·{" "}
+                    <span className="text-brand-dark">{masteryState(state.mastery[selected.id])}</span>
                   </p>
                 </div>
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-2xl border-2 border-sand bg-white p-3">
-                  <p className="text-lg">🏛️</p>
-                  <p className="text-[11px] font-bold text-ink-soft">Capital</p>
+                <div className="rounded-2xl border-2 border-line bg-white p-3">
+                  <PillarIcon size={20} className="mx-auto" />
+                  <p className="mt-1 text-[11px] font-bold text-sub">Capital</p>
                   <p className="text-sm font-extrabold leading-tight">{selected.capital}</p>
                 </div>
-                <div className="rounded-2xl border-2 border-sand bg-white p-3">
-                  <p className="text-lg">👥</p>
-                  <p className="text-[11px] font-bold text-ink-soft">People</p>
+                <div className="rounded-2xl border-2 border-line bg-white p-3">
+                  <GlobeIcon size={20} className="mx-auto" />
+                  <p className="mt-1 text-[11px] font-bold text-sub">People</p>
                   <p className="text-sm font-extrabold">{fmtPop(selected.pop)}</p>
                 </div>
-                <div className="rounded-2xl border-2 border-sand bg-white p-3">
-                  <p className="text-lg">📐</p>
-                  <p className="text-[11px] font-bold text-ink-soft">Area</p>
+                <div className="rounded-2xl border-2 border-line bg-white p-3">
+                  <PinIcon size={20} className="mx-auto" />
+                  <p className="mt-1 text-[11px] font-bold text-sub">Area</p>
                   <p className="text-sm font-extrabold">{fmtArea(selected.area)}</p>
                 </div>
               </div>
 
               {!selected.noShape && !selected.tiny && (
-                <div className="mt-3 flex justify-center rounded-2xl border-2 border-sand bg-white p-3">
-                  <CountryShape countryId={selected.id} height={110} width={180} fill="#2EC4B6" />
+                <div className="mt-3 flex justify-center rounded-2xl border-2 border-line bg-panel p-3">
+                  <CountryShape countryId={selected.id} height={110} width={180} fill="#00B2A9" />
                 </div>
               )}
 
               {(selected.neighbors?.length ?? 0) > 0 && (
                 <div className="mt-3">
-                  <p className="mb-1.5 text-xs font-extrabold text-ink-soft">NEIGHBORS</p>
+                  <p className="mb-1.5 text-xs font-extrabold uppercase tracking-wide text-sub">Neighbors</p>
                   <div className="flex flex-wrap gap-1.5">
                     {selected.neighbors!.map((n) => {
                       const nc = byId.get(n);
@@ -246,7 +244,7 @@ export default function SandboxPage() {
                         <button
                           key={n}
                           onClick={() => { sfx.tap(); setSelected(nc); markExplored(nc.id); }}
-                          className="rounded-full border-2 border-sand bg-white px-2.5 py-1 text-xs font-extrabold"
+                          className="rounded-xl border-2 border-line bg-white px-2.5 py-1 text-xs font-extrabold"
                         >
                           {nc.name}
                         </button>
