@@ -12,14 +12,24 @@ import React, {
   useState,
 } from "react";
 import { dayKey, daysBetween } from "./format";
-import { COUNTRIES, ofContinent, type Continent } from "@/data/countries";
+import { COUNTRIES, CONTINENTS, ofContinent, type Continent } from "@/data/countries";
 import type { Skill } from "./engine";
+import {
+  allChallengesComplete,
+  CHALLENGE_PASS,
+  type ChallengeRecord,
+  type MedalRecord,
+} from "./medals";
+import { buildPath } from "./paths";
+
+export type Placement = "explorer" | "traveler" | "globetrotter";
 
 export interface Prefs {
   onboarded: boolean;
   focus: "countries" | "capitals" | "flags" | "world";
   pace: "quick" | "balanced" | "intense";
   region: Continent | "World";
+  placement?: Placement;
 }
 
 export interface AppState {
@@ -43,6 +53,9 @@ export interface AppState {
   reviewQueue: Record<string, number>; // "countryId|skill" → miss count
   mastery: Record<string, { r: number; w: number }>;
   explored: string[]; // country ids inspected in sandbox
+  pathProgress: Record<string, number[]>; // continent → stars per path node
+  challenges: Record<string, ChallengeRecord>; // "Continent|skill" → record
+  medals: Record<string, MedalRecord>; // continent name or "World"
   prefs: Prefs;
 }
 
@@ -72,6 +85,9 @@ const defaultState: AppState = {
   reviewQueue: {},
   mastery: {},
   explored: [],
+  pathProgress: {},
+  challenges: {},
+  medals: {},
   prefs: { onboarded: false, focus: "world", pace: "balanced", region: "World" },
 };
 
@@ -111,6 +127,10 @@ interface Store {
     sprintScore?: number;
   }) => void;
   markExplored: (countryId: string) => void;
+  completePathNode: (continent: Continent, nodeIdx: number, stars: number) => void;
+  completeChallenge: (continent: Continent, skill: Skill, acc: number) => void;
+  defendMedal: (id: string) => void;
+  setPlacement: (level: Placement, region: Continent | "World") => void;
   clearNotices: () => void;
   resetAll: () => void;
 }
@@ -217,6 +237,61 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const completePathNode = useCallback((continent: Continent, nodeIdx: number, stars: number) => {
+    setState((s) => {
+      const arr = [...(s.pathProgress[continent] ?? [])];
+      arr[nodeIdx] = Math.max(arr[nodeIdx] ?? 0, stars);
+      return { ...s, pathProgress: { ...s.pathProgress, [continent]: arr } };
+    });
+  }, []);
+
+  const completeChallenge = useCallback((continent: Continent, skill: Skill, acc: number) => {
+    setState((s) => {
+      const today = dayKey();
+      const key = `${continent}|${skill}`;
+      const prev = s.challenges[key];
+      const rec: ChallengeRecord = {
+        best: Math.max(prev?.best ?? 0, acc),
+        completedAt: prev?.completedAt ?? (acc >= CHALLENGE_PASS ? today : null),
+      };
+      const challenges = { ...s.challenges, [key]: rec };
+      const medals = { ...s.medals };
+      // conquer a whole continent → earn its medal
+      if (!medals[continent] && allChallengesComplete(continent, challenges)) {
+        medals[continent] = { earnedAt: today, lastDefended: today };
+      }
+      // every continent medal earned → the ultimate World medal
+      if (!medals.World && CONTINENTS.every((c) => medals[c])) {
+        medals.World = { earnedAt: today, lastDefended: today };
+      }
+      return { ...s, challenges, medals };
+    });
+  }, []);
+
+  const defendMedal = useCallback((id: string) => {
+    setState((s) => {
+      const m = s.medals[id];
+      if (!m) return s;
+      return { ...s, medals: { ...s.medals, [id]: { ...m, lastDefended: dayKey() } } };
+    });
+  }, []);
+
+  const setPlacement = useCallback((level: Placement, region: Continent | "World") => {
+    setState((s) => {
+      const next = { ...s, prefs: { ...s.prefs, placement: level } };
+      // skip ahead: pre-pass the first lessons of the starting region
+      const grant = level === "traveler" ? 3 : level === "globetrotter" ? 6 : 0;
+      if (grant > 0) {
+        const cont: Continent = region === "World" ? "Europe" : region;
+        const nodes = buildPath(cont);
+        const arr = [...(s.pathProgress[cont] ?? [])];
+        for (let i = 0; i < Math.min(grant, nodes.length); i++) arr[i] = Math.max(arr[i] ?? 0, 1);
+        next.pathProgress = { ...s.pathProgress, [cont]: arr };
+      }
+      return next;
+    });
+  }, []);
+
   const clearNotices = useCallback(() => {
     setState((s) =>
       s.brokenStreak || s.freezeJustUsed ? { ...s, brokenStreak: 0, freezeJustUsed: false } : s
@@ -236,10 +311,14 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       spendHeart,
       finishSession,
       markExplored,
+      completePathNode,
+      completeChallenge,
+      defendMedal,
+      setPlacement,
       clearNotices,
       resetAll,
     }),
-    [state, ready, setPrefs, recordAnswer, spendHeart, finishSession, markExplored, clearNotices, resetAll]
+    [state, ready, setPrefs, recordAnswer, spendHeart, finishSession, markExplored, completePathNode, completeChallenge, defendMedal, setPlacement, clearNotices, resetAll]
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

@@ -1,14 +1,16 @@
 "use client";
-// Onboarding: 4 quick, tactile steps → straight into play.
+// Onboarding: prefs (focus, pace, region) + a 5-question placement check
+// that decides where your journey starts. Rule-based — no backend, no AI.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { useProgress, type Prefs } from "@/lib/store";
-import { CONTINENTS, CONTINENT_META, type Continent } from "@/data/countries";
+import { useProgress, type Prefs, type Placement } from "@/lib/store";
+import { CONTINENTS, type Continent } from "@/data/countries";
 import { Btn } from "@/components/ui";
 import Mascot from "@/components/Mascot";
 import ContinentIcon from "@/components/ContinentIcon";
+import Flag from "@/components/Flag";
 import { BoltIcon, FlagIcon, GlobeIcon, PillarIcon, PinIcon, SparkleIcon } from "@/components/icons";
 import { sfx } from "@/lib/sfx";
 
@@ -28,6 +30,31 @@ const PACE: { id: Pace; icon: React.ReactNode; label: string; sub: string }[] = 
   { id: "intense", icon: <BoltIcon size={30} />, label: "Intense", sub: "12 questions, full focus" },
 ];
 
+// Fixed difficulty ladder, easy → hard. First option is always correct;
+// display order is shuffled per session.
+const PLACEMENT_QS: { prompt: string; flag?: string; options: string[] }[] = [
+  { prompt: "What's the capital of France?", options: ["Paris", "Rome", "Berlin", "Madrid"] },
+  { prompt: "Whose flag is this?", flag: "jp", options: ["Japan", "South Korea", "China", "Thailand"] },
+  { prompt: "Which of these borders Brazil?", options: ["Peru", "Chile", "Mexico", "Cuba"] },
+  { prompt: "What's the capital of Canada?", options: ["Ottawa", "Toronto", "Vancouver", "Montreal"] },
+  { prompt: "What's the capital of Kazakhstan?", options: ["Astana", "Tashkent", "Bishkek", "Baku"] },
+];
+
+const LEVELS: Record<Placement, { title: string; desc: string }> = {
+  explorer: {
+    title: "Explorer",
+    desc: "Fresh boots, whole world ahead. Your journey starts at the very beginning — perfect.",
+  },
+  traveler: {
+    title: "Traveler",
+    desc: "You know your way around a map. We've skipped you past the first lessons.",
+  },
+  globetrotter: {
+    title: "Globetrotter",
+    desc: "Seriously sharp. The first two units are already cleared for you.",
+  },
+};
+
 // Enter-only slide: progression must never wait on an exit animation.
 const slide = {
   initial: { opacity: 0, x: 60 },
@@ -37,21 +64,46 @@ const slide = {
 
 export default function Onboarding() {
   const router = useRouter();
-  const { setPrefs } = useProgress();
-  const [step, setStep] = useState(0);
+  const { setPrefs, setPlacement } = useProgress();
+  const [step, setStep] = useState(0); // 0 welcome, 1 focus, 2 pace, 3 region, 4 quiz intro, 5 quiz, 6 result
   const [focus, setFocus] = useState<Focus>("world");
   const [pace, setPace] = useState<Pace>("balanced");
   const [region, setRegion] = useState<Continent | "World">("World");
+
+  // placement quiz state
+  const [qIdx, setQIdx] = useState(0);
+  const [rightCount, setRightCount] = useState(0);
+  const [picked, setPicked] = useState<number | null>(null);
+  const orders = useMemo(
+    () => PLACEMENT_QS.map((q) => q.options.map((_, i) => i).sort(() => Math.random() - 0.5)),
+    []
+  );
+
+  const level: Placement = rightCount <= 1 ? "explorer" : rightCount <= 3 ? "traveler" : "globetrotter";
 
   const next = () => {
     sfx.tap();
     setStep((s) => s + 1);
   };
 
-  const finish = () => {
+  const finish = (lvl: Placement) => {
     sfx.fanfare();
     setPrefs({ onboarded: true, focus, pace, region });
+    setPlacement(lvl, region);
     router.replace("/");
+  };
+
+  const pickAnswer = (optIdx: number) => {
+    if (picked !== null) return;
+    const right = optIdx === 0; // option 0 is always the correct one
+    setPicked(optIdx);
+    right ? sfx.correct() : sfx.wrong();
+    if (right) setRightCount((c) => c + 1);
+    setTimeout(() => {
+      setPicked(null);
+      if (qIdx + 1 >= PLACEMENT_QS.length) setStep(6);
+      else setQIdx((i) => i + 1);
+    }, 750);
   };
 
   const OptionCard = ({
@@ -91,14 +143,17 @@ export default function Onboarding() {
     </motion.button>
   );
 
+  const dots = Math.min(step, 4);
+  const q = PLACEMENT_QS[qIdx];
+
   return (
     <div className="flex min-h-dvh flex-col px-5 pb-8 pt-10">
       {/* progress dots */}
       <div className="mb-8 flex justify-center gap-2">
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1, 2, 3, 4].map((i) => (
           <motion.div
             key={i}
-            animate={{ width: i === step ? 26 : 8, backgroundColor: i <= step ? "#00B2A9" : "#E5E5E5" }}
+            animate={{ width: i === dots ? 26 : 8, backgroundColor: i <= dots ? "#00B2A9" : "#E5E5E5" }}
             className="h-2 rounded-full"
           />
         ))}
@@ -106,7 +161,7 @@ export default function Onboarding() {
 
       {step === 0 && (
         <motion.div key="s0" {...slide} className="flex flex-1 flex-col items-center justify-center text-center">
-          <Mascot size={170} pose="happy" />
+          <Mascot size={180} pose="happy" />
           <h1 className="mt-6 text-4xl font-extrabold tracking-tight">Atlas Sprint</h1>
           <p className="mt-2 max-w-xs text-base font-bold text-sub">
             Master the world one round at a time. Countries, capitals, flags — fast, fun, yours.
@@ -177,10 +232,80 @@ export default function Onboarding() {
             ))}
           </div>
           <div className="mt-auto pt-6">
-            <Btn full onClick={finish}>
-              Start playing
+            <Btn full onClick={next}>
+              Next
             </Btn>
           </div>
+        </motion.div>
+      )}
+
+      {step === 4 && (
+        <motion.div key="s4" {...slide} className="flex flex-1 flex-col items-center justify-center text-center">
+          <Mascot size={140} pose="thinking" />
+          <h2 className="mt-5 text-2xl font-extrabold">Quick check</h2>
+          <p className="mt-2 max-w-xs text-sm font-bold text-sub">
+            5 questions so your journey starts at the right spot. Ace them and you skip the easy stuff.
+          </p>
+          <Btn full className="mt-8 max-w-xs" onClick={next}>
+            I'm ready
+          </Btn>
+          <button
+            onClick={() => finish("explorer")}
+            className="mt-4 text-sm font-extrabold uppercase tracking-wide text-sub"
+          >
+            Skip — start from zero
+          </button>
+        </motion.div>
+      )}
+
+      {step === 5 && (
+        <motion.div key={`q${qIdx}`} {...slide} className="flex flex-1 flex-col">
+          <p className="mb-2 text-center text-xs font-extrabold uppercase tracking-widest text-sub">
+            Question {qIdx + 1} of {PLACEMENT_QS.length}
+          </p>
+          <h2 className="mb-4 text-center text-2xl font-extrabold">{q.prompt}</h2>
+          {q.flag && (
+            <div className="mb-5 flex justify-center">
+              <Flag countryId={q.flag} size="lg" className="!h-24 !w-36 rounded-xl" />
+            </div>
+          )}
+          <div className="mt-auto grid gap-3">
+            {orders[qIdx].map((optIdx) => {
+              const showState = picked !== null;
+              const cls = showState
+                ? optIdx === 0
+                  ? "border-brand bg-brand-light text-brand-deep"
+                  : picked === optIdx
+                    ? "border-red bg-red-light text-red-dark animate-shake"
+                    : "border-line bg-white opacity-50"
+                : "border-line bg-white shadow-[0_3px_0_#E5E5E5]";
+              return (
+                <motion.button
+                  key={optIdx}
+                  whileTap={picked === null ? { scale: 0.98 } : undefined}
+                  disabled={picked !== null}
+                  onClick={() => pickAnswer(optIdx)}
+                  className={`rounded-2xl border-2 p-4 text-base font-extrabold transition-colors ${cls}`}
+                >
+                  {q.options[optIdx]}
+                </motion.button>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {step === 6 && (
+        <motion.div key="s6" {...slide} className="flex flex-1 flex-col items-center justify-center text-center">
+          <Mascot size={160} pose={level === "explorer" ? "happy" : "celebrate"} />
+          <p className="mt-5 text-xs font-extrabold uppercase tracking-widest text-brand">
+            {rightCount}/{PLACEMENT_QS.length} correct
+          </p>
+          <h2 className="mt-1 text-3xl font-extrabold">You're a {LEVELS[level].title}</h2>
+          <p className="mt-2 max-w-xs text-sm font-bold text-sub">{LEVELS[level].desc}</p>
+          <Btn full className="mt-8 max-w-xs" onClick={() => finish(level)}>
+            Start playing
+          </Btn>
         </motion.div>
       )}
     </div>

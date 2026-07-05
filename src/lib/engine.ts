@@ -10,7 +10,16 @@ import {
 import { hashSeed, mulberry32, pickN, shuffled } from "./format";
 
 export type Skill = "capital" | "flag" | "shape" | "locate" | "neighbor" | "rank";
-export type Mode = "daily" | "learn" | "sprint" | "review" | "sandbox" | "rankings";
+export type Mode =
+  | "daily"
+  | "learn"
+  | "sprint"
+  | "review"
+  | "sandbox"
+  | "rankings"
+  | "path"
+  | "challenge"
+  | "defend";
 
 export interface Option {
   id: string; // option id (country id or synthetic)
@@ -40,6 +49,7 @@ export interface SessionConfig {
   count: number;
   seed?: string;
   reviewKeys?: string[]; // "countryId|skill"
+  countryIds?: string[]; // explicit scope: one question per country (path/challenge/defend)
 }
 
 const poolFor = (cont?: Continent | "World"): Country[] =>
@@ -245,6 +255,9 @@ const MODE_SKILLS: Record<Mode, Skill[]> = {
   review: [],
   sandbox: ["capital", "flag", "shape", "locate", "neighbor"],
   rankings: ["rank"],
+  path: ["capital", "flag", "shape", "locate", "neighbor"],
+  challenge: ["capital", "flag", "shape", "locate"],
+  defend: ["capital", "flag", "shape", "locate", "neighbor"],
 };
 
 export function generateSession(cfg: SessionConfig): Question[] {
@@ -252,6 +265,21 @@ export function generateSession(cfg: SessionConfig): Question[] {
   const pool = poolFor(cfg.continent);
   const used = new Set<string>();
   const out: Question[] = [];
+
+  // Explicit scope (path lessons, challenges, medal defenses): one question
+  // per country, distractors drawn from the wider continent/world pool.
+  if (cfg.countryIds?.length) {
+    const scope = cfg.countryIds.map((id) => byId.get(id)!).filter(Boolean);
+    const targets = shuffled(scope, rng).slice(0, cfg.count);
+    const mixSkills = MODE_SKILLS[cfg.mode].length ? MODE_SKILLS[cfg.mode] : MODE_SKILLS.learn;
+    for (const c of targets) {
+      const skill =
+        cfg.skill && cfg.skill !== "mix" ? cfg.skill : pickN(mixSkills, 1, rng)[0];
+      const q = buildForCountry(skill, c, pool, rng);
+      if (q) out.push(q);
+    }
+    return shuffled(out, rng);
+  }
 
   if (cfg.mode === "review" && cfg.reviewKeys?.length) {
     for (const key of shuffled(cfg.reviewKeys, rng).slice(0, cfg.count)) {

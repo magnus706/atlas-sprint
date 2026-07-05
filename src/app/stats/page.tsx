@@ -13,8 +13,12 @@ import {
   masteryState,
 } from "@/lib/store";
 import { CONTINENTS, CONTINENT_META, ofContinent } from "@/data/countries";
+import { ALL_MEDAL_IDS, medalStatus } from "@/lib/medals";
+import { dayKey } from "@/lib/format";
 import { Bar, Btn, Card, Ring } from "@/components/ui";
 import ContinentIcon from "@/components/ContinentIcon";
+import MedalArt from "@/components/MedalArt";
+import Link from "next/link";
 import {
   BoltIcon,
   CrownIcon,
@@ -117,6 +121,47 @@ export default function StatsPage() {
           </div>
         </Card>
       )}
+
+      {/* Medals — earned by conquest, kept by defense */}
+      <Card className="mb-4 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="font-extrabold">
+            Medals · {ALL_MEDAL_IDS.filter((id) => state.medals[id]).length}/{ALL_MEDAL_IDS.length}
+          </p>
+          <Link href="/learn?tab=challenges" className="text-xs font-extrabold uppercase tracking-wide text-brand">
+            Earn more
+          </Link>
+        </div>
+        {ALL_MEDAL_IDS.some((id) => state.medals[id]) ? (
+          <div className="grid grid-cols-4 gap-2">
+            {ALL_MEDAL_IDS.map((id) => {
+              const m = state.medals[id];
+              const status = m ? medalStatus(m, dayKey()).status : null;
+              return (
+                <div key={id} className="flex flex-col items-center rounded-2xl border-2 border-line bg-white p-2 text-center">
+                  {m ? (
+                    <MedalArt id={id} status={status!} size={44} />
+                  ) : (
+                    <div className="flex h-11 w-11 items-center justify-center opacity-50">
+                      <LockIcon size={26} />
+                    </div>
+                  )}
+                  <span className="mt-1 text-[9px] font-extrabold leading-tight">{id}</span>
+                  {status && status !== "shiny" && (
+                    <span className={`text-[8px] font-extrabold uppercase ${status === "tarnished" ? "text-sub" : "text-orange-dark"}`}>
+                      {status === "tarnished" ? "Tarnished" : "At risk"}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm font-bold text-sub">
+            Conquer every challenge in a continent to earn its medal — then defend it to keep the shine.
+          </p>
+        )}
+      </Card>
 
       <Card className="mb-4 p-4">
         <p className="mb-3 font-extrabold">

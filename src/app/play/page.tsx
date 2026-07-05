@@ -8,14 +8,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   generateSession,
+  SKILL_META,
   type Mode,
   type Question,
   type Skill,
 } from "@/lib/engine";
+import MedalArt from "@/components/MedalArt";
 import { useProgress } from "@/lib/store";
 import { dayKey } from "@/lib/format";
 import { byId, CONTINENT_META, ofContinent, type Continent } from "@/data/countries";
 import { fmtArea, fmtPop } from "@/lib/format";
+import { buildPath } from "@/lib/paths";
+import {
+  challengePool,
+  defendPool,
+  CHALLENGE_PASS,
+  DEFEND_COUNT,
+  DEFEND_PASS,
+  type MedalId,
+} from "@/lib/medals";
 import { sfx } from "@/lib/sfx";
 import Flag from "@/components/Flag";
 import CountryShape from "@/components/CountryShape";
@@ -46,7 +57,15 @@ function PlayInner() {
   const mode = (params.get("mode") ?? "learn") as Mode;
   const continent = (params.get("continent") as Continent | "World" | null) ?? state.prefs.region;
   const skill = (params.get("skill") as Skill | "mix" | null) ?? "mix";
-  const usesHearts = mode === "daily" || mode === "learn" || mode === "review";
+  const nodeIdx = parseInt(params.get("node") ?? "0", 10) || 0;
+  const medalId = (params.get("medal") ?? "World") as MedalId;
+  const usesHearts = mode === "daily" || mode === "learn" || mode === "review" || mode === "path";
+
+  const pathNodes = useMemo(
+    () => (mode === "path" && continent !== "World" ? buildPath(continent as Continent) : null),
+    [mode, continent]
+  );
+  const pathNode = pathNodes?.[Math.min(nodeIdx, (pathNodes?.length ?? 1) - 1)] ?? null;
 
   const paceCount = state.prefs.pace === "quick" ? 5 : state.prefs.pace === "intense" ? 12 : 8;
 
@@ -73,22 +92,56 @@ function PlayInner() {
   // Build the session
   useEffect(() => {
     if (!ready) return;
-    const count =
-      mode === "daily" ? 10 : mode === "sprint" ? 80 : mode === "rankings" ? 8 : paceCount;
-    const reviewKeys = Object.keys(state.reviewQueue);
-    setSession(
-      generateSession({
-        mode,
-        continent: mode === "daily" || mode === "sprint" ? "World" : continent,
-        skill: skill === "mix" ? undefined : skill,
-        count: mode === "review" ? Math.max(5, Math.min(10, reviewKeys.length)) : count,
-        seed: mode === "daily" ? `daily-${dayKey()}` : undefined,
-        reviewKeys,
-      })
-    );
-    setPhase(mode === "learn" || mode === "daily" || mode === "sprint" ? "intro" : "question");
+    if (mode === "path" && pathNode) {
+      setSession(
+        generateSession({
+          mode,
+          continent,
+          skill: pathNode.skill,
+          count: pathNode.kind === "checkpoint" ? 12 : 8,
+          countryIds: pathNode.countryIds,
+        })
+      );
+    } else if (mode === "challenge" && continent !== "World" && skill !== "mix") {
+      const pool = challengePool(continent as Continent, skill);
+      setSession(
+        generateSession({
+          mode,
+          continent,
+          skill,
+          count: Math.min(pool.length, 45),
+          countryIds: pool.map((c) => c.id),
+        })
+      );
+    } else if (mode === "defend") {
+      const pool = defendPool(medalId);
+      setSession(
+        generateSession({
+          mode,
+          continent: medalId === "World" ? "World" : medalId,
+          count: DEFEND_COUNT,
+          countryIds: pool.map((c) => c.id),
+        })
+      );
+    } else {
+      const count =
+        mode === "daily" ? 10 : mode === "sprint" ? 80 : mode === "rankings" ? 8 : paceCount;
+      const reviewKeys = Object.keys(state.reviewQueue);
+      setSession(
+        generateSession({
+          mode,
+          continent: mode === "daily" || mode === "sprint" ? "World" : continent,
+          skill: skill === "mix" ? undefined : skill,
+          count: mode === "review" ? Math.max(5, Math.min(10, reviewKeys.length)) : count,
+          seed: mode === "daily" ? `daily-${dayKey()}` : undefined,
+          reviewKeys,
+        })
+      );
+    }
+    const hasIntro = ["learn", "daily", "sprint", "path", "challenge", "defend"].includes(mode);
+    setPhase(hasIntro ? "intro" : "question");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, mode, continent, skill, runId]);
+  }, [ready, mode, continent, skill, nodeIdx, medalId, runId]);
 
   // Sprint countdown — wall-clock based so background-tab timer throttling
   // can't freeze the clock; any tick snaps to true remaining time.
@@ -205,6 +258,15 @@ function PlayInner() {
         sprintScore={mode === "sprint" ? score : undefined}
         endedEarly={endedEarly}
         onAgain={again}
+        outcome={
+          mode === "path" && pathNode && continent !== "World"
+            ? { kind: "path", continent: continent as Continent, nodeIdx: pathNode.idx, nodeCount: pathNodes!.length, title: pathNode.title }
+            : mode === "challenge" && continent !== "World" && skill !== "mix"
+              ? { kind: "challenge", continent: continent as Continent, skill }
+              : mode === "defend"
+                ? { kind: "defend", medalId }
+                : undefined
+        }
       />
     );
   }
@@ -214,21 +276,47 @@ function PlayInner() {
     const isLearnContinent = continent !== "World" && mode === "learn";
     const meta = isLearnContinent ? CONTINENT_META[continent as Continent] : null;
     const introTitle =
-      mode === "sprint" ? "Sprint" : mode === "daily" ? "Daily Challenge" : `${continent}`;
+      mode === "sprint"
+        ? "Sprint"
+        : mode === "daily"
+          ? "Daily Challenge"
+          : mode === "path" && pathNode
+            ? pathNode.kind === "checkpoint"
+              ? pathNode.title
+              : `Unit ${pathNode.unit} · ${pathNode.title}`
+            : mode === "challenge"
+              ? `${continent} · ${skill !== "mix" ? SKILL_META[skill].label : ""} Challenge`
+              : mode === "defend"
+                ? `Defend your ${medalId} medal`
+                : `${continent}`;
     const introSub =
       mode === "sprint"
         ? `${SPRINT_SECONDS} seconds. Chain answers for combo points. Go fast.`
         : mode === "daily"
           ? "10 mixed questions from all over the world. Extend your streak."
-          : meta
-            ? `${meta.tagline} — ${ofContinent(continent as Continent).length} countries to master.`
-            : "A mixed round from across the whole world.";
+          : mode === "path" && pathNode
+            ? pathNode.kind === "checkpoint"
+              ? "Everything from this unit, mixed together. Show what stuck."
+              : `${pathNode.countryIds.length} countries from this unit. Pass to unlock the next lesson.`
+            : mode === "challenge"
+              ? `Every country, one question each. Score ${CHALLENGE_PASS}%+ to conquer it. No hearts — just you and the map.`
+              : mode === "defend"
+                ? `${DEFEND_COUNT} hard questions. Score ${DEFEND_PASS}%+ to keep your medal shining.`
+                : meta
+                  ? `${meta.tagline} — ${ofContinent(continent as Continent).length} countries to master.`
+                  : "A mixed round from across the whole world.";
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
         {mode === "sprint" ? (
           <BoltIcon size={80} />
+        ) : mode === "defend" ? (
+          <MedalArt id={medalId} size={130} />
+        ) : mode === "challenge" && continent !== "World" ? (
+          <ContinentIcon continent={continent as Continent} size={96} />
         ) : isLearnContinent ? (
           <ContinentIcon continent={continent as Continent} size={96} />
+        ) : mode === "path" ? (
+          <Mascot size={130} pose={pathNode?.kind === "checkpoint" ? "thinking" : "happy"} />
         ) : (
           <Mascot size={140} pose="happy" />
         )}
@@ -240,9 +328,9 @@ function PlayInner() {
           </p>
         )}
         <Btn className="mt-8 w-full max-w-xs" onClick={() => { sfx.tap(); setPhase("question"); }}>
-          {mode === "sprint" ? "Start the clock" : "Start"}
+          {mode === "sprint" ? "Start the clock" : mode === "defend" ? "Defend it" : "Start"}
         </Btn>
-        <Link href="/" className="mt-5 text-sm font-extrabold uppercase tracking-wide text-sub">
+        <Link href={mode === "path" || mode === "challenge" ? "/learn" : "/"} className="mt-5 text-sm font-extrabold uppercase tracking-wide text-sub">
           Not now
         </Link>
       </div>
