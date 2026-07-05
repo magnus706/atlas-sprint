@@ -4,14 +4,19 @@ import { ProgressProvider } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 import InstallPrompt from "@/components/InstallPrompt";
 
+// Next does not auto-prefix metadata icon/manifest URLs with basePath, so do it here.
+const bp = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 export const metadata: Metadata = {
   title: "Atlas Sprint — master the world",
   description: "A fast, joyful geography game. Countries, capitals, flags, shapes — one more round?",
-  manifest: "/manifest.webmanifest",
   applicationName: "Atlas Sprint",
   icons: {
-    icon: [{ url: "/favicon.png", type: "image/png" }, { url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    icon: [
+      { url: `${bp}/favicon.png`, type: "image/png" },
+      { url: `${bp}/icon-192.png`, sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: `${bp}/apple-icon.png`, sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,
@@ -32,6 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/* manual manifest link — Next normalizes the metadata `manifest` field
+            and strips the base path, which breaks it under GitHub Pages */}
+        <link rel="manifest" href={`${bp}/manifest.webmanifest`} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

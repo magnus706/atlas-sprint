@@ -23,9 +23,10 @@ export default function InstallPrompt() {
 
   useEffect(() => {
     // Register the SW in production only — a caching SW interferes with the
-    // dev server's HMR and can serve stale chunks.
+    // dev server's HMR and can serve stale chunks. Base path aware for Pages.
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      const bp = process.env.NEXT_PUBLIC_BASE_PATH || "";
+      navigator.serviceWorker.register(`${bp}/sw.js`).catch(() => {});
     }
 
     const standalone =

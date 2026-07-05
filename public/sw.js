@@ -1,14 +1,16 @@
 // Atlas Sprint service worker — minimal offline shell.
 // Network-first for navigation (always fresh when online, cached fallback offline);
 // cache-first for static assets and flag images.
+//
+// Base-path aware: derives its scope from its own URL, so it works both at the
+// site root (local) and under GitHub Pages' /<repo>/ prefix with no config.
 
+const BASE = self.location.pathname.replace(/sw\.js$/, ""); // e.g. "/" or "/atlas-sprint/"
 const CACHE = "atlas-sprint-v1";
-const CORE = ["/", "/learn", "/sandbox", "/rankings", "/stats", "/review"];
+const CORE = ["", "learn/", "sandbox/", "rankings/", "stats/", "review/"].map((p) => BASE + p);
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(CORE)).catch(() => {})
-  );
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).catch(() => {}));
   self.skipWaiting();
 });
 
@@ -27,11 +29,11 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // Never cache Next.js dev/HMR or API traffic.
-  if (url.pathname.startsWith("/_next/webpack-hmr") || url.pathname.startsWith("/api/")) return;
+  // Never cache Next.js dev/HMR traffic.
+  if (url.pathname.includes("/_next/webpack-hmr")) return;
 
   // Cache-first for flag images (external CDN) and Next static chunks.
-  if (url.hostname.endsWith("flagcdn.com") || url.pathname.startsWith("/_next/static/")) {
+  if (url.hostname.endsWith("flagcdn.com") || url.pathname.includes("/_next/static/")) {
     event.respondWith(
       caches.match(request).then(
         (hit) =>
@@ -55,7 +57,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
           return res;
         })
-        .catch(() => caches.match(request).then((hit) => hit || caches.match("/")))
+        .catch(() => caches.match(request).then((hit) => hit || caches.match(BASE)))
     );
   }
 });
