@@ -42,6 +42,7 @@ import {
   CrossIcon,
   FlameIcon,
   PinIcon,
+  SparkleIcon,
   Spinner,
 } from "@/components/icons";
 
@@ -469,21 +470,22 @@ function PlayInner() {
         )}
       </motion.div>
 
-      {/* Feedback banner — Duolingo-style light band */}
+      {/* Answer sheet — result + country spotlight card */}
       <AnimatePresence>
-        {phase === "feedback" && (
-          <motion.div
-            initial={{ y: 90, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 90, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 34 }}
-            className={`fixed inset-x-0 bottom-0 z-40 border-t-2 ${
-              lastRight ? "border-brand bg-brand-light" : "border-red bg-red-light"
-            }`}
-          >
-            <div className="mx-auto max-w-md p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
+        {phase === "feedback" &&
+          (mode === "sprint" || !byId.get(q.countryId) ? (
+            /* slim fast banner: sprint + rank/order questions */
+            <motion.div
+              initial={{ y: 90, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 90, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 34 }}
+              className={`fixed inset-x-0 bottom-0 z-40 border-t-2 ${
+                lastRight ? "border-brand bg-brand-light" : "border-red bg-red-light"
+              }`}
+            >
+              <div className="mx-auto flex max-w-md items-center justify-between gap-3 p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+                <div className="flex items-center gap-3">
                   <span
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
                       lastRight ? "bg-brand text-white" : "bg-red text-white"
@@ -506,22 +508,20 @@ function PlayInner() {
                   </Btn>
                 )}
               </div>
-              {/* educational fact — learn something either way */}
-              {mode !== "sprint" && factFor(q.countryId) && (
-                <motion.p
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 }}
-                  className={`mt-2.5 rounded-xl border-2 bg-white/70 px-3 py-2 text-[13px] font-bold leading-snug ${
-                    lastRight ? "border-brand/25 text-brand-deep" : "border-red/20 text-red-dark"
-                  }`}
-                >
-                  {byId.get(q.countryId)?.name}: {factFor(q.countryId)}
-                </motion.p>
-              )}
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          ) : (
+            <CountrySpotlight
+              key="spotlight"
+              q={q}
+              right={lastRight}
+              msg={
+                lastRight
+                  ? CORRECT_MSGS[results.length % CORRECT_MSGS.length]
+                  : "Close — let's fix that."
+              }
+              onContinue={() => advance(idx)}
+            />
+          ))}
       </AnimatePresence>
 
       {/* Quit confirmation — leaving mid-lesson loses progress */}
@@ -565,6 +565,123 @@ function PlayInner() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// ---------- Country spotlight: rich answer sheet ----------
+
+function CountrySpotlight({
+  q,
+  right,
+  msg,
+  onContinue,
+}: {
+  q: Question;
+  right: boolean;
+  msg: string;
+  onContinue: () => void;
+}) {
+  const c = byId.get(q.countryId)!;
+  const fact = factFor(c.id);
+  return (
+    <motion.div
+      initial={{ y: "100%" }}
+      animate={{ y: 0 }}
+      exit={{ y: "100%" }}
+      transition={{ type: "spring", stiffness: 340, damping: 32 }}
+      className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md"
+    >
+      <div
+        className={`rounded-t-3xl border-2 border-b-0 bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] ${
+          right ? "border-brand" : "border-red"
+        }`}
+      >
+        {/* result strip */}
+        <div
+          className={`flex items-center justify-between gap-3 rounded-t-[22px] px-4 py-3 ${
+            right ? "bg-brand-light" : "bg-red-light"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white ${
+                right ? "bg-brand" : "bg-red"
+              }`}
+            >
+              {right ? <CheckIcon size={18} /> : <CrossIcon size={15} />}
+            </span>
+            <p className={`text-base font-extrabold leading-tight ${right ? "text-brand-deep" : "text-red-dark"}`}>
+              {msg}
+            </p>
+          </div>
+          <Btn tone={right ? "brand" : "red"} size="md" onClick={onContinue}>
+            Continue
+          </Btn>
+        </div>
+
+        <div className="relative overflow-hidden px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3.5">
+          {/* decorative silhouette */}
+          {!c.tiny && !c.noShape && (
+            <div className="pointer-events-none absolute -right-4 -top-2 opacity-[0.08]">
+              <CountryShape countryId={c.id} width={190} height={150} fill="#00726C" />
+            </div>
+          )}
+
+          {/* country header */}
+          <motion.div
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.12 }}
+            className="relative flex items-center gap-3"
+          >
+            <Flag countryId={c.id} size="md" className="!h-11 !w-[66px] rounded-lg" />
+            <div>
+              <p className="text-xl font-extrabold leading-tight">{c.name}</p>
+              <p className="flex items-center gap-1.5 text-xs font-bold text-sub">
+                <ContinentIcon continent={c.continent} size={14} /> {c.continent}
+              </p>
+            </div>
+          </motion.div>
+
+          {/* key stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="relative mt-3 grid grid-cols-3 gap-2"
+          >
+            <div className="rounded-xl border-2 border-line bg-panel px-2 py-2 text-center">
+              <p className="text-[10px] font-extrabold uppercase tracking-wide text-sub">Capital</p>
+              <p className="text-[13px] font-extrabold leading-tight">{c.capital}</p>
+            </div>
+            <div className="rounded-xl border-2 border-line bg-panel px-2 py-2 text-center">
+              <p className="text-[10px] font-extrabold uppercase tracking-wide text-sub">People</p>
+              <p className="text-[13px] font-extrabold leading-tight">{fmtPop(c.pop)}</p>
+            </div>
+            <div className="rounded-xl border-2 border-line bg-panel px-2 py-2 text-center">
+              <p className="text-[10px] font-extrabold uppercase tracking-wide text-sub">Area</p>
+              <p className="text-[13px] font-extrabold leading-tight">{fmtArea(c.area)}</p>
+            </div>
+          </motion.div>
+
+          {/* fun fact */}
+          {fact && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="relative mt-2.5 flex items-start gap-2 rounded-xl border-2 border-yellow bg-yellow-light px-3 py-2.5"
+            >
+              <SparkleIcon size={18} className="mt-0.5 shrink-0" />
+              <p className="text-[13px] font-bold leading-snug text-ink">
+                <span className="font-extrabold text-yellow-dark">Did you know? </span>
+                {fact}
+              </p>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
