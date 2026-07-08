@@ -18,7 +18,7 @@ import { CHALLENGE_PASS, DEFEND_PASS, type MedalId } from "@/lib/medals";
 import { dayKey } from "@/lib/format";
 import { sfx } from "@/lib/sfx";
 import MedalArt from "./MedalArt";
-import { XpIcon } from "./icons";
+import { ChestIcon, GemIcon, XpIcon } from "./icons";
 
 export interface SessionResult {
   q: Question;
@@ -36,6 +36,7 @@ interface Props {
   xp: number;
   bestCombo: number;
   sprintScore?: number;
+  duel?: { target: number; from: string }; // friend challenge to beat
   endedEarly?: boolean;
   onAgain: () => void;
   outcome?: SessionOutcome;
@@ -47,13 +48,17 @@ export default function SessionComplete({
   xp,
   bestCombo,
   sprintScore,
+  duel,
   endedEarly,
   onAgain,
   outcome,
 }: Props) {
-  const { state, finishSession, completePathNode, completeChallenge, defendMedal } = useProgress();
+  const { state, finishSession, completePathNode, completeChallenge, defendMedal, addGems } = useProgress();
   const committed = useRef(false);
+  const gemsRef = useRef({ total: 0, chest: false, chestBonus: 0 });
   const [shownXp, setShownXp] = useState(0);
+  const [shownGems, setShownGems] = useState(0);
+  const [chestOpen, setChestOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const total = results.length;
@@ -84,6 +89,12 @@ export default function SessionComplete({
     if (outcome?.kind === "defend" && defended) {
       defendMedal(outcome.medalId);
     }
+    // gems: 2 per correct + perfect bonus; every 5th session opens a chest
+    const gemsBase = right * 2 + (perfect ? 15 : 0);
+    const chest = !endedEarly && (state.sessions + 1) % 5 === 0;
+    const chestBonus = chest ? 20 + Math.floor(Math.random() * 41) : 0; // 20–60
+    gemsRef.current = { total: gemsBase + chestBonus, chest, chestBonus };
+    if (gemsRef.current.total > 0) addGems(gemsRef.current.total);
     if (perfect || (sprintScore ?? 0) > 400 || conquered || defended) sfx.fanfare();
     else sfx.combo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,7 +102,18 @@ export default function SessionComplete({
 
   useEffect(() => {
     const c = animate(0, xp, { duration: 1, onUpdate: (v) => setShownXp(Math.round(v)) });
-    return () => c.stop();
+    const g = animate(0, gemsRef.current.total, {
+      duration: 1.1,
+      delay: 0.4,
+      onUpdate: (v) => setShownGems(Math.round(v)),
+    });
+    const t = gemsRef.current.chest ? setTimeout(() => { setChestOpen(true); sfx.fanfare(); }, 1200) : null;
+    return () => {
+      c.stop();
+      g.stop();
+      if (t) clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [xp]);
 
   const isDaily = mode === "daily";
@@ -107,9 +129,15 @@ export default function SessionComplete({
     perfect || milestone !== null || isNewSprintBest || stars === 3 || conquered || defended || !!medalJustEarned;
 
   const share = async () => {
+    // deep link that opens straight into a beat-my-score sprint duel
+    const name = state.prefs.name?.trim() || "A friend";
+    const duelUrl =
+      sprintScore !== undefined && typeof window !== "undefined"
+        ? `${window.location.origin}${process.env.NEXT_PUBLIC_BASE_PATH || ""}/play/?mode=sprint&target=${sprintScore}&from=${encodeURIComponent(name)}`
+        : null;
     const text =
       sprintScore !== undefined
-        ? `I scored ${sprintScore} in Atlas Sprint's 60-second Sprint. Beat that.`
+        ? `I scored ${sprintScore} in Atlas Sprint's 60-second Sprint. Beat me here: ${duelUrl}`
         : `Atlas Sprint: ${acc}% accuracy, +${xp} XP${state.streak > 0 ? `, ${state.streak}-day streak` : ""}. Think you can beat me?`;
     try {
       if (navigator.share) {
@@ -192,6 +220,24 @@ export default function SessionComplete({
           </p>
         )}
 
+        {/* friend duel result */}
+        {duel && sprintScore !== undefined && (
+          <motion.p
+            initial={{ scale: 0.7, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.3, type: "spring", stiffness: 260, damping: 14 }}
+            className={`mt-2 rounded-xl border-2 px-4 py-2 text-sm font-extrabold ${
+              sprintScore > duel.target
+                ? "border-brand bg-brand-light text-brand-deep"
+                : "border-yellow bg-yellow-light text-yellow-dark"
+            }`}
+          >
+            {sprintScore > duel.target
+              ? `You beat ${duel.from || "your friend"}'s ${duel.target}!`
+              : `${duel.from || "Your friend"}'s ${duel.target} survives — try again!`}
+          </motion.p>
+        )}
+
         {/* path stars */}
         {outcome?.kind === "path" && !endedEarly && (
           <div className="mt-3 flex gap-2">
@@ -250,7 +296,43 @@ export default function SessionComplete({
             <FlameIcon size={18} /> Best combo: {bestCombo} in a row
           </p>
         )}
+        {gemsRef.current.total > 0 && (
+          <motion.p
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4, type: "spring", stiffness: 260, damping: 16 }}
+            className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm font-extrabold text-blue-dark"
+          >
+            <GemIcon size={20} /> +{shownGems} gems
+          </motion.p>
+        )}
       </Card>
+
+      {/* mystery chest — every 5th session */}
+      {gemsRef.current.chest && (
+        <motion.button
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          onClick={() => { if (!chestOpen) { setChestOpen(true); sfx.fanfare(); } }}
+          className="mb-4 flex w-full items-center gap-3 rounded-2xl border-2 border-yellow bg-yellow-light p-4"
+        >
+          <motion.span
+            animate={chestOpen ? { rotate: [0, -8, 8, 0], scale: [1, 1.25, 1] } : { y: [0, -4, 0] }}
+            transition={chestOpen ? { duration: 0.6 } : { repeat: Infinity, duration: 1.2 }}
+          >
+            <ChestIcon size={40} open={chestOpen} />
+          </motion.span>
+          <span className="flex-1 text-left">
+            <span className="block font-extrabold text-yellow-dark">
+              {chestOpen ? `Bonus: +${gemsRef.current.chestBonus} gems!` : "Mystery chest!"}
+            </span>
+            <span className="block text-xs font-bold text-sub">
+              {chestOpen ? "Every 5 lessons earns another." : "You finished 5 lessons — tap to open"}
+            </span>
+          </span>
+        </motion.button>
+      )}
 
       {/* Weak spots */}
       {wrongCountries.length > 0 && (

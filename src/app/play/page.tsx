@@ -19,6 +19,7 @@ import { dayKey } from "@/lib/format";
 import { byId, CONTINENT_META, ofContinent, type Continent } from "@/data/countries";
 import { fmtArea, fmtPop } from "@/lib/format";
 import { buildPath } from "@/lib/paths";
+import { factFor } from "@/data/facts";
 import {
   challengePool,
   defendPool,
@@ -88,10 +89,32 @@ function PlayInner() {
   const advancedFrom = useRef(-1);
   const heartsRef = useRef(state.hearts);
   heartsRef.current = state.hearts;
+  const [showQuit, setShowQuit] = useState(false);
+  const quitHref = mode === "path" || mode === "challenge" || mode === "defend" ? "/learn" : "/";
+  // friend-duel deep link: /play?mode=sprint&target=<score>&from=<name>
+  const duelTarget = parseInt(params.get("target") ?? "0", 10) || 0;
+  const duelFrom = params.get("from") ?? "";
 
   // Build the session
   useEffect(() => {
     if (!ready) return;
+    // Reset per-run state on every (re)build. Next.js reuses this component when
+    // navigating between lessons, so without this the old idx/results/advance-guard
+    // leak into the next lesson and can strand the user on the completion screen.
+    setIdx(0);
+    setResults([]);
+    setPicked(null);
+    setMapStates({});
+    setCombo(0);
+    setBestCombo(0);
+    setXp(0);
+    setScore(0);
+    setTimeLeft(SPRINT_SECONDS);
+    setEndedEarly(false);
+    advancedFrom.current = -1;
+    // personalization inputs — the shared seeded daily must stay identical for
+    // everyone, so it gets no personal state
+    const personal = mode === "daily" ? {} : { mastery: state.mastery, recent: state.recent };
     if (mode === "path" && pathNode) {
       setSession(
         generateSession({
@@ -100,6 +123,7 @@ function PlayInner() {
           skill: pathNode.skill,
           count: pathNode.kind === "checkpoint" ? 12 : 8,
           countryIds: pathNode.countryIds,
+          ...personal,
         })
       );
     } else if (mode === "challenge" && continent !== "World" && skill !== "mix") {
@@ -111,6 +135,7 @@ function PlayInner() {
           skill,
           count: Math.min(pool.length, 45),
           countryIds: pool.map((c) => c.id),
+          ...personal,
         })
       );
     } else if (mode === "defend") {
@@ -121,6 +146,7 @@ function PlayInner() {
           continent: medalId === "World" ? "World" : medalId,
           count: DEFEND_COUNT,
           countryIds: pool.map((c) => c.id),
+          ...personal,
         })
       );
     } else {
@@ -135,6 +161,7 @@ function PlayInner() {
           count: mode === "review" ? Math.max(5, Math.min(10, reviewKeys.length)) : count,
           seed: mode === "daily" ? `daily-${dayKey()}` : undefined,
           reviewKeys,
+          ...personal,
         })
       );
     }
@@ -188,9 +215,10 @@ function PlayInner() {
         if (usesHearts) spendHeart();
       }
 
-      // auto-advance on correct (and always in sprint)
+      // sprint auto-advances (speed mode); other modes wait for Continue so
+      // the player has time to read the educational fact
       const fromIdx = idx;
-      const delay = mode === "sprint" ? (right ? 550 : 900) : right ? 850 : 0;
+      const delay = mode === "sprint" ? (right ? 550 : 900) : 0;
       if (delay > 0) {
         advanceTimer.current = setTimeout(() => advance(fromIdx), delay);
       }
@@ -224,18 +252,8 @@ function PlayInner() {
     [session, usesHearts]
   );
 
+  // A fresh run is just a rebuild — the build effect resets all per-run state.
   const again = () => {
-    advancedFrom.current = -1;
-    setIdx(0);
-    setResults([]);
-    setCombo(0);
-    setBestCombo(0);
-    setXp(0);
-    setScore(0);
-    setTimeLeft(SPRINT_SECONDS);
-    setEndedEarly(false);
-    setPicked(null);
-    setMapStates({});
     setSession(null);
     setRunId((r) => r + 1);
   };
@@ -256,6 +274,7 @@ function PlayInner() {
         xp={mode === "sprint" ? Math.round(score / 20) : xp + (results.length > 0 && results.every((r) => r.right) && !endedEarly ? 25 : 0)}
         bestCombo={bestCombo}
         sprintScore={mode === "sprint" ? score : undefined}
+        duel={mode === "sprint" && duelTarget > 0 ? { target: duelTarget, from: duelFrom } : undefined}
         endedEarly={endedEarly}
         onAgain={again}
         outcome={
@@ -322,6 +341,16 @@ function PlayInner() {
         )}
         <h1 className="mt-5 text-3xl font-extrabold">{introTitle}</h1>
         <p className="mt-2 max-w-xs text-sm font-bold text-sub">{introSub}</p>
+        {mode === "sprint" && duelTarget > 0 && (
+          <motion.p
+            initial={{ scale: 0.7, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 14 }}
+            className="mt-3 rounded-xl border-2 border-yellow bg-yellow-light px-4 py-2 text-sm font-extrabold text-yellow-dark"
+          >
+            {duelFrom ? `${duelFrom} challenged you!` : "Challenge!"} Beat {duelTarget} to win.
+          </motion.p>
+        )}
         {mode === "sprint" && state.sprintBest > 0 && (
           <p className="mt-3 rounded-xl border-2 border-line bg-white px-3 py-1.5 text-sm font-extrabold">
             Your best: {state.sprintBest}
@@ -342,13 +371,13 @@ function PlayInner() {
   // ---------- header ----------
   const header = (
     <div className="mb-4 flex items-center gap-3">
-      <Link
-        href="/"
+      <button
+        onClick={() => { sfx.tap(); setShowQuit(true); }}
         className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-line bg-white text-sub"
         aria-label="Quit"
       >
         <CrossIcon size={16} />
-      </Link>
+      </button>
       {mode === "sprint" ? (
         <>
           <div className="flex-1">
@@ -452,31 +481,87 @@ function PlayInner() {
               lastRight ? "border-brand bg-brand-light" : "border-red bg-red-light"
             }`}
           >
-            <div className="mx-auto flex max-w-md items-center justify-between gap-3 p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
-              <div className="flex items-center gap-3">
-                <span
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
-                    lastRight ? "bg-brand text-white" : "bg-red text-white"
+            <div className="mx-auto max-w-md p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+                      lastRight ? "bg-brand text-white" : "bg-red text-white"
+                    }`}
+                  >
+                    {lastRight ? <CheckIcon size={22} /> : <CrossIcon size={18} />}
+                  </span>
+                  <div className={lastRight ? "text-brand-deep" : "text-red-dark"}>
+                    <p className="text-lg font-extrabold leading-tight">
+                      {lastRight
+                        ? CORRECT_MSGS[results.length % CORRECT_MSGS.length]
+                        : "Close — let's fix that."}
+                    </p>
+                    {!lastRight && <CorrectAnswerLine q={q} />}
+                  </div>
+                </div>
+                {mode !== "sprint" && (
+                  <Btn tone={lastRight ? "brand" : "red"} size="md" onClick={() => advance(idx)}>
+                    Continue
+                  </Btn>
+                )}
+              </div>
+              {/* educational fact — learn something either way */}
+              {mode !== "sprint" && factFor(q.countryId) && (
+                <motion.p
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                  className={`mt-2.5 rounded-xl border-2 bg-white/70 px-3 py-2 text-[13px] font-bold leading-snug ${
+                    lastRight ? "border-brand/25 text-brand-deep" : "border-red/20 text-red-dark"
                   }`}
                 >
-                  {lastRight ? <CheckIcon size={22} /> : <CrossIcon size={18} />}
-                </span>
-                <div className={lastRight ? "text-brand-deep" : "text-red-dark"}>
-                  <p className="text-lg font-extrabold leading-tight">
-                    {lastRight
-                      ? CORRECT_MSGS[results.length % CORRECT_MSGS.length]
-                      : "Close — let's fix that."}
-                  </p>
-                  {!lastRight && <CorrectAnswerLine q={q} />}
-                </div>
-              </div>
-              {!lastRight && mode !== "sprint" && (
-                <Btn tone="red" size="md" onClick={() => advance(idx)}>
-                  Continue
-                </Btn>
+                  {byId.get(q.countryId)?.name}: {factFor(q.countryId)}
+                </motion.p>
               )}
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Quit confirmation — leaving mid-lesson loses progress */}
+      <AnimatePresence>
+        {showQuit && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowQuit(false)}
+              className="fixed inset-0 z-50 bg-ink/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 20 }}
+              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              className="fixed left-1/2 top-1/2 z-50 w-[min(340px,88vw)] -translate-x-1/2 -translate-y-1/2 rounded-3xl border-2 border-line bg-white/90 p-6 text-center shadow-[0_10px_40px_rgba(0,0,0,0.2)] backdrop-blur-xl"
+            >
+              <div className="mb-2 flex justify-center">
+                <Mascot pose="sad" size={104} />
+              </div>
+              <h3 className="text-xl font-extrabold">Leave the lesson?</h3>
+              <p className="mt-1 text-sm font-bold text-sub">
+                Your progress this round won&apos;t count. Atlas would love it if you stayed.
+              </p>
+              <div className="mt-5 flex flex-col gap-2.5">
+                <Btn tone="brand" full onClick={() => { sfx.tap(); setShowQuit(false); }}>
+                  Keep learning
+                </Btn>
+                <button
+                  onClick={() => { sfx.tap(); router.push(quitHref); }}
+                  className="py-2 text-sm font-extrabold uppercase tracking-wide text-sub"
+                >
+                  Leave anyway
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

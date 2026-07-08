@@ -50,6 +50,9 @@ export interface SessionConfig {
   seed?: string;
   reviewKeys?: string[]; // "countryId|skill"
   countryIds?: string[]; // explicit scope: one question per country (path/challenge/defend)
+  // personalization (optional): weakness-weighted picks, repeat avoidance
+  mastery?: Record<string, { r: number; w: number }>;
+  recent?: string[]; // recently asked "skill:countryId" keys
 }
 
 const poolFor = (cont?: Continent | "World"): Country[] =>
@@ -220,28 +223,74 @@ const shapeable = (c: Country) => !c.tiny && !c.noShape;
 const locatable = (c: Country) => !c.tiny;
 const neighborable = (c: Country) => (c.neighbors?.length ?? 0) > 0;
 
-function buildOne(skill: Skill, pool: Country[], used: Set<string>, rng: () => number): Question | null {
+// ---------- personalization ----------
+
+/** Selection weight: weak countries surface more, mastered ones less, unseen slightly more. */
+function weightFor(c: Country, mastery?: Record<string, { r: number; w: number }>): number {
+  const m = mastery?.[c.id];
+  if (!m || m.r + m.w === 0) return 1.3; // unseen → explore
+  const net = m.r - m.w;
+  if (net < 0) return 1 + Math.min(3, -net); // weak → up to 4×
+  if (net >= 6) return 0.35; // mastered → rare refresher
+  return 1;
+}
+
+/** Weighted random pick honoring repeat-avoidance; falls back if pool is tight. */
+function pickWeighted(
+  candidates: Country[],
+  skill: Skill,
+  cfg: SessionConfig,
+  rng: () => number
+): Country | null {
+  if (!candidates.length) return null;
+  const recent = new Set(cfg.recent ?? []);
+  let pool = candidates.filter((c) => !recent.has(`${skill}:${c.id}`));
+  if (pool.length < Math.min(3, candidates.length)) pool = candidates; // too tight → allow repeats
+  const weights = pool.map((c) => weightFor(c, cfg.mastery));
+  let total = weights.reduce((s, x) => s + x, 0);
+  let roll = rng() * total;
+  for (let i = 0; i < pool.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return pool[i];
+  }
+  return pool[pool.length - 1];
+}
+
+/** Rough difficulty for ordering questions easy → hard within a session. */
+function difficultyOf(q: Question, cfg: SessionConfig): number {
+  const c = byId.get(q.countryId);
+  if (!c) return 0.5;
+  // well-known (populous) countries are easier; weakness makes it harder for THIS user
+  const popEase = Math.min(1, Math.log10(Math.max(c.pop, 0.1) + 1) / 3);
+  const m = cfg.mastery?.[c.id];
+  const net = m ? m.r - m.w : 0;
+  const skillHard = q.skill === "shape" || q.skill === "neighbor" ? 0.25 : q.kind === "map" ? 0.15 : 0;
+  return (1 - popEase) + skillHard + (net < 0 ? 0.3 : net >= 4 ? -0.2 : 0);
+}
+
+function buildOne(skill: Skill, pool: Country[], used: Set<string>, cfg: SessionConfig, rng: () => number): Question | null {
   const fresh = pool.filter((c) => !used.has(c.id));
   const from = fresh.length >= 4 ? fresh : pool;
   switch (skill) {
-    case "capital":
-      return capitalQ(pickN(from, 1, rng)[0], pool, rng);
-    case "flag":
-      return flagQ(pickN(from, 1, rng)[0], pool, rng);
+    case "capital": {
+      const c = pickWeighted(from, skill, cfg, rng);
+      return c ? capitalQ(c, pool, rng) : null;
+    }
+    case "flag": {
+      const c = pickWeighted(from, skill, cfg, rng);
+      return c ? flagQ(c, pool, rng) : null;
+    }
     case "shape": {
-      const ok = from.filter(shapeable);
-      if (!ok.length) return null;
-      return shapeQ(pickN(ok, 1, rng)[0], pool, rng);
+      const c = pickWeighted(from.filter(shapeable), skill, cfg, rng);
+      return c ? shapeQ(c, pool, rng) : null;
     }
     case "locate": {
-      const ok = from.filter(locatable);
-      if (!ok.length) return null;
-      return locateQ(pickN(ok, 1, rng)[0]);
+      const c = pickWeighted(from.filter(locatable), skill, cfg, rng);
+      return c ? locateQ(c) : null;
     }
     case "neighbor": {
-      const ok = from.filter(neighborable);
-      if (!ok.length) return null;
-      return neighborQ(pickN(ok, 1, rng)[0], pool, rng);
+      const c = pickWeighted(from.filter(neighborable), skill, cfg, rng);
+      return c ? neighborQ(c, pool, rng) : null;
     }
     case "rank":
       return rng() < 0.5 ? rankMcQ(pool, rng) : orderQ(pool, rng);
@@ -270,15 +319,24 @@ export function generateSession(cfg: SessionConfig): Question[] {
   // per country, distractors drawn from the wider continent/world pool.
   if (cfg.countryIds?.length) {
     const scope = cfg.countryIds.map((id) => byId.get(id)!).filter(Boolean);
-    const targets = shuffled(scope, rng).slice(0, cfg.count);
+    // weakest countries first in the pick order so they always make the cut
+    const ranked = shuffled(scope, rng).sort(
+      (a, b) => weightFor(b, cfg.mastery) - weightFor(a, cfg.mastery)
+    );
+    const targets = ranked.slice(0, cfg.count);
     const mixSkills = MODE_SKILLS[cfg.mode].length ? MODE_SKILLS[cfg.mode] : MODE_SKILLS.learn;
+    const recent = new Set(cfg.recent ?? []);
     for (const c of targets) {
-      const skill =
-        cfg.skill && cfg.skill !== "mix" ? cfg.skill : pickN(mixSkills, 1, rng)[0];
+      let skill = cfg.skill && cfg.skill !== "mix" ? cfg.skill : pickN(mixSkills, 1, rng)[0];
+      // for mixed rounds, avoid a recently-seen exact skill+country pairing
+      if ((!cfg.skill || cfg.skill === "mix") && recent.has(`${skill}:${c.id}`)) {
+        const alt = mixSkills.find((s) => !recent.has(`${s}:${c.id}`));
+        if (alt) skill = alt;
+      }
       const q = buildForCountry(skill, c, pool, rng);
       if (q) out.push(q);
     }
-    return shuffled(out, rng);
+    return out.sort((a, b) => difficultyOf(a, cfg) - difficultyOf(b, cfg));
   }
 
   if (cfg.mode === "review" && cfg.reviewKeys?.length) {
@@ -296,8 +354,9 @@ export function generateSession(cfg: SessionConfig): Question[] {
       }
     }
     // top up with mixed world questions if the queue is short
-    while (out.length < Math.min(cfg.count, 5)) {
-      const q = buildOne(pickN(MODE_SKILLS.daily, 1, rng)[0], pool, used, rng);
+    let topupGuard = 0;
+    while (out.length < Math.min(cfg.count, 5) && topupGuard++ < 40) {
+      const q = buildOne(pickN(MODE_SKILLS.daily, 1, rng)[0], pool, used, cfg, rng);
       if (q) {
         out.push(q);
         used.add(q.countryId);
@@ -320,7 +379,7 @@ export function generateSession(cfg: SessionConfig): Question[] {
   let guard = 0;
   while (out.length < cfg.count && guard++ < cfg.count * 12) {
     const skill = skills[out.length % skills.length];
-    const q = buildOne(skill, pool, used, rng);
+    const q = buildOne(skill, pool, used, cfg, rng);
     if (!q) {
       // pool can't serve this skill (e.g. no neighbors) → drop it
       skills = skills.filter((s) => s !== skill);
@@ -330,7 +389,10 @@ export function generateSession(cfg: SessionConfig): Question[] {
     if (q.countryId) used.add(q.countryId);
     out.push(q);
   }
-  return shuffled(out, rng);
+  // ramp difficulty easy → hard (skip for the shared seeded daily so everyone
+  // gets the identical experience regardless of their personal mastery)
+  if (cfg.mode === "daily") return shuffled(out, rng);
+  return out.sort((a, b) => difficultyOf(a, cfg) - difficultyOf(b, cfg));
 }
 
 function buildForCountry(skill: Skill, c: Country, pool: Country[], rng: () => number): Question | null {

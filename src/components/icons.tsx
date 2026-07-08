@@ -245,6 +245,36 @@ export const BirdIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const GemIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 3h10l4 6-9 12L3 9l4-6Z" fill="#1CB0F6" />
+    <path d="M7 3h10l4 6H3l4-6Z" fill="#7CD4FB" />
+    <path d="M9.5 9 12 21 3 9h6.5ZM14.5 9H21l-9 12 2.5-12Z" fill="#1899D6" />
+    <path d="M9.5 9h5L12 21 9.5 9Z" fill="#4FC3F7" />
+  </Svg>
+);
+
+export const ChestIcon = ({ open = false, ...p }: IconProps & { open?: boolean }) => (
+  <Svg {...p}>
+    {open ? (
+      <>
+        <path d="M4 6.5 12 3l8 3.5-8 3.5L4 6.5Z" fill="#B98A11" />
+        <rect x="4" y="10" width="16" height="10" rx="2" fill="#E0A458" />
+        <rect x="4" y="10" width="16" height="3.4" fill="#C6893C" />
+        <circle cx="12" cy="14.5" r="2" fill="#FFC800" />
+        <path d="m12 4.5 1 2 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2L9 6.8l2-.3 1-2Z" fill="#FFDE59" />
+      </>
+    ) : (
+      <>
+        <rect x="4" y="7" width="16" height="13" rx="2.5" fill="#E0A458" />
+        <path d="M4 11h16v2.6H4z" fill="#C6893C" />
+        <rect x="10.4" y="10" width="3.2" height="4.6" rx="1" fill="#FFC800" />
+        <path d="M4 9.5A2.5 2.5 0 0 1 6.5 7h11A2.5 2.5 0 0 1 20 9.5V11H4V9.5Z" fill="#C6893C" />
+      </>
+    )}
+  </Svg>
+);
+
 /* ---------- skill icon lookup ---------- */
 
 export function SkillIcon({ skill, size = 24, className = "" }: { skill: Skill } & IconProps) {

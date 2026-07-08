@@ -1,7 +1,7 @@
 "use client";
 // Home — the game lobby: streak, daily challenge, momentum at a glance.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -21,11 +21,34 @@ import {
   BoltIcon,
   CompassIcon,
   FreezeIcon,
+  GemIcon,
   MedalIcon,
   Spinner,
   TargetIcon,
   TrophyIcon,
 } from "@/components/icons";
+
+/** hh:mm:ss until local midnight — when the next daily challenge unlocks. */
+function useMidnightCountdown(active: boolean): string {
+  const [left, setLeft] = useState("");
+  useEffect(() => {
+    if (!active) return;
+    const tick = () => {
+      const now = new Date();
+      const mid = new Date(now);
+      mid.setHours(24, 0, 0, 0);
+      const s = Math.max(0, Math.floor((mid.getTime() - now.getTime()) / 1000));
+      const h = String(Math.floor(s / 3600)).padStart(2, "0");
+      const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+      const sec = String(s % 60).padStart(2, "0");
+      setLeft(`${h}:${m}:${sec}`);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  return left;
+}
 
 const fadeUp = {
   initial: { opacity: 0, y: 14 },
@@ -46,6 +69,10 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [ready, clearNotices]);
 
+  // hooks must run unconditionally — before the loading early-return
+  const dailyDone = ready && state.lastDaily === dayKey();
+  const countdown = useMidnightCountdown(dailyDone);
+
   if (!ready || !state.prefs.onboarded) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -55,7 +82,6 @@ export default function Home() {
   }
 
   const lvl = levelFromXp(state.xp);
-  const dailyDone = state.lastDaily === dayKey();
   const hour = new Date().getHours();
   const greeting = hour < 5 ? "Night owl" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const weakCount = Object.keys(state.reviewQueue).length;
@@ -75,7 +101,13 @@ export default function Home() {
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <StreakBadge streak={state.streak} freezes={state.freezes} />
-          <Hearts count={state.hearts} compact />
+          <div className="flex gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-xl border-2 border-line bg-white px-2.5 py-1.5 text-sm font-extrabold text-blue-dark">
+              <GemIcon size={16} />
+              {state.gems}
+            </span>
+            <Hearts count={state.hearts} compact />
+          </div>
         </div>
       </motion.header>
 
@@ -140,6 +172,11 @@ export default function Home() {
                     ? `One round keeps the ${state.streak}-day streak going.`
                     : "Start a streak today."}
               </p>
+              {dailyDone && countdown && (
+                <p className="mt-1.5 inline-flex rounded-lg bg-white/70 px-2 py-1 font-mono text-xs font-extrabold tracking-wider text-brand-deep">
+                  Next challenge in {countdown}
+                </p>
+              )}
             </div>
             {dailyDone ? <MedalIcon size={52} /> : <Mascot size={72} pose="happy" />}
           </div>

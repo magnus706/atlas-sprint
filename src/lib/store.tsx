@@ -30,6 +30,7 @@ export interface Prefs {
   pace: "quick" | "balanced" | "intense";
   region: Continent | "World";
   placement?: Placement;
+  name?: string; // display name shown on the profile
 }
 
 export interface AppState {
@@ -56,6 +57,9 @@ export interface AppState {
   pathProgress: Record<string, number[]>; // continent → stars per path node
   challenges: Record<string, ChallengeRecord>; // "Continent|skill" → record
   medals: Record<string, MedalRecord>; // continent name or "World"
+  recent: string[]; // last-asked "skill:countryId" keys (repeat avoidance)
+  gems: number; // reward currency
+  skillStats: Record<string, { r: number; w: number }>; // per-skill accuracy
   prefs: Prefs;
 }
 
@@ -88,6 +92,9 @@ const defaultState: AppState = {
   pathProgress: {},
   challenges: {},
   medals: {},
+  recent: [],
+  gems: 0,
+  skillStats: {},
   prefs: { onboarded: false, focus: "world", pace: "balanced", region: "World" },
 };
 
@@ -127,6 +134,7 @@ interface Store {
     sprintScore?: number;
   }) => void;
   markExplored: (countryId: string) => void;
+  addGems: (n: number) => void;
   completePathNode: (continent: Continent, nodeIdx: number, stars: number) => void;
   completeChallenge: (continent: Continent, skill: Skill, acc: number) => void;
   defendMedal: (id: string) => void;
@@ -186,14 +194,27 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       } else {
         queue[key] = (queue[key] ?? 0) + 1;
       }
+      const ss = s.skillStats[skill] ?? { r: 0, w: 0 };
+      const skillStats = {
+        ...s.skillStats,
+        [skill]: right ? { ...ss, r: ss.r + 1 } : { ...ss, w: ss.w + 1 },
+      };
+      // repeat-avoidance ring buffer (last ~70 skill:country pairings)
+      const recent = [...s.recent.filter((k) => k !== `${skill}:${countryId}`), `${skill}:${countryId}`].slice(-70);
       return {
         ...s,
         mastery,
         reviewQueue: queue,
+        skillStats,
+        recent,
         answers: s.answers + 1,
         correct: s.correct + (right ? 1 : 0),
       };
     });
+  }, []);
+
+  const addGems = useCallback((n: number) => {
+    setState((s) => ({ ...s, gems: Math.max(0, s.gems + n) }));
   }, []);
 
   const spendHeart = useCallback(() => {
@@ -311,6 +332,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       spendHeart,
       finishSession,
       markExplored,
+      addGems,
       completePathNode,
       completeChallenge,
       defendMedal,
@@ -318,7 +340,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       clearNotices,
       resetAll,
     }),
-    [state, ready, setPrefs, recordAnswer, spendHeart, finishSession, markExplored, completePathNode, completeChallenge, defendMedal, setPlacement, clearNotices, resetAll]
+    [state, ready, setPrefs, recordAnswer, spendHeart, finishSession, markExplored, addGems, completePathNode, completeChallenge, defendMedal, setPlacement, clearNotices, resetAll]
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

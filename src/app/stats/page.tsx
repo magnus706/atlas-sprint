@@ -12,18 +12,22 @@ import {
   BADGES,
   masteryState,
 } from "@/lib/store";
-import { CONTINENTS, CONTINENT_META, ofContinent } from "@/data/countries";
+import { byId, CONTINENTS, CONTINENT_META, ofContinent } from "@/data/countries";
 import { ALL_MEDAL_IDS, medalStatus } from "@/lib/medals";
+import { SKILL_META, type Skill } from "@/lib/engine";
 import { dayKey } from "@/lib/format";
 import { Bar, Btn, Card, Ring } from "@/components/ui";
 import ContinentIcon from "@/components/ContinentIcon";
 import MedalArt from "@/components/MedalArt";
+import Mascot from "@/components/Mascot";
+import Flag from "@/components/Flag";
 import Link from "next/link";
 import {
   BoltIcon,
   CrownIcon,
   FlameIcon,
   FreezeIcon,
+  GemIcon,
   LockIcon,
   MedalIcon,
   TargetIcon,
@@ -45,14 +49,29 @@ const BADGE_ICON: Record<string, React.ReactNode> = {
   continents: <CrownIcon size={28} />,
 };
 
+const RANKS: [number, string][] = [
+  [15, "Atlas Legend"],
+  [10, "Cartographer"],
+  [6, "Globetrotter"],
+  [3, "Traveler"],
+  [0, "Explorer"],
+];
+
 export default function StatsPage() {
-  const { state, ready, resetAll } = useProgress();
+  const { state, ready, resetAll, setPrefs } = useProgress();
   const [confirmReset, setConfirmReset] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState("");
   if (!ready) return null;
 
   const lvl = levelFromXp(state.xp);
   const acc = accuracy(state);
   const earned = new Set(earnedBadges(state).map((b) => b.id));
+  const rank = RANKS.find(([min]) => lvl.level >= min)![1];
+  const name = state.prefs.name?.trim() || "Explorer";
+
+  // favorite category = skill with the most correct answers
+  const favSkill = Object.entries(state.skillStats).sort((a, b) => b[1].r - a[1].r)[0]?.[0];
 
   const contProgress = CONTINENTS.map((c) => ({ cont: c, p: continentProgress(state, c) }));
   const sorted = [...contProgress].sort((a, b) => b.p - a.p);
@@ -61,6 +80,16 @@ export default function StatsPage() {
   const masteredCount = Object.values(state.mastery).filter(
     (m) => masteryState(m) === "Mastered"
   ).length;
+  // recently learned = last answered countries that are now Strong/Mastered
+  const recentlyLearned = [...state.recent]
+    .reverse()
+    .map((k) => k.split(":")[1])
+    .filter((id, i, arr) => arr.indexOf(id) === i)
+    .filter((id) => {
+      const st = masteryState(state.mastery[id]);
+      return st === "Strong" || st === "Mastered";
+    })
+    .slice(0, 5);
 
   const Stat = ({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) => (
     <div className="rounded-2xl border-2 border-line bg-white p-3 text-center">
@@ -72,14 +101,37 @@ export default function StatsPage() {
 
   return (
     <div className="safe-bottom px-4 pt-6">
+      {/* profile header: avatar + editable name + rank */}
       <div className="mb-5 flex items-center gap-4">
-        <Ring value={lvl.into / lvl.span} size={78} stroke={8}>
-          <span className="text-2xl font-extrabold text-brand-dark">{lvl.level}</span>
-        </Ring>
-        <div>
-          <h1 className="text-2xl font-extrabold">Explorer</h1>
-          <p className="text-sm font-bold text-sub">
-            Level {lvl.level} · {state.xp} XP · {masteredCount} mastered
+        <div className="relative">
+          <div className="flex h-[84px] w-[84px] items-center justify-center overflow-hidden rounded-full border-4 border-brand bg-brand-tint">
+            <Mascot size={64} float={false} />
+          </div>
+          <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-brand text-sm font-extrabold text-white">
+            {lvl.level}
+          </span>
+        </div>
+        <div className="flex-1">
+          {editingName ? (
+            <input
+              autoFocus
+              defaultValue={state.prefs.name ?? ""}
+              placeholder="Your name"
+              maxLength={18}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={() => { setPrefs({ name: draftName.trim() || state.prefs.name }); setEditingName(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+              className="w-full rounded-xl border-2 border-brand bg-white px-3 py-1.5 text-xl font-extrabold outline-none"
+            />
+          ) : (
+            <button onClick={() => { setDraftName(state.prefs.name ?? ""); setEditingName(true); }} className="text-left">
+              <h1 className="text-2xl font-extrabold">{name}</h1>
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-sub">tap to edit name</span>
+            </button>
+          )}
+          <p className="mt-0.5 text-sm font-bold text-brand-dark">{rank}</p>
+          <p className="text-xs font-bold text-sub">
+            {state.xp} XP · {masteredCount} mastered{favSkill ? ` · loves ${SKILL_META[favSkill as Skill].label}` : ""}
           </p>
         </div>
       </div>
@@ -91,6 +143,9 @@ export default function StatsPage() {
         <Stat icon={<TargetIcon size={22} />} label="Accuracy" value={`${acc}%`} />
         <Stat icon={<MedalIcon size={22} />} label="Rounds" value={state.sessions} />
         <Stat icon={<BoltIcon size={22} />} label="Sprint best" value={state.sprintBest} />
+        <Stat icon={<GemIcon size={22} />} label="Gems" value={state.gems} />
+        <Stat icon={<CrownIcon size={22} />} label="Mastered" value={masteredCount} />
+        <Stat icon={<MedalIcon size={22} />} label="Explored" value={state.explored.length} />
       </div>
 
       {state.answers > 0 && (
@@ -117,6 +172,24 @@ export default function StatsPage() {
                 </div>
                 <Bar value={p} tone={CONTINENT_META[cont].color} height={10} />
               </motion.div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Recently learned */}
+      {recentlyLearned.length > 0 && (
+        <Card className="mb-4 p-4">
+          <p className="mb-2 font-extrabold">Recently learned</p>
+          <div className="flex flex-wrap gap-2">
+            {recentlyLearned.map((id) => (
+              <span
+                key={id}
+                className="inline-flex items-center gap-1.5 rounded-xl border-2 border-line bg-panel px-2.5 py-1 text-xs font-extrabold"
+              >
+                <Flag countryId={id} size="sm" className="!h-4 !w-6" />
+                {byId.get(id)?.name}
+              </span>
             ))}
           </div>
         </Card>
