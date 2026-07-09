@@ -1,5 +1,5 @@
 "use client";
-// Atlas Sprint UI kit v2 — clean white surfaces, hairline borders,
+// Pangea UI kit v2 — clean white surfaces, hairline borders,
 // thick pressed 3D buttons, uppercase labels. No emoji anywhere.
 
 import React from "react";

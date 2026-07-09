@@ -1,5 +1,5 @@
 "use client";
-// "Atlas" — the app mascot. Real illustrated art (public/mascot/<pose>.png),
+// "Pan" — the Pangea mascot. Real illustrated art (public/mascot/<pose>.png),
 // background pre-removed. Falls back to a flat-vector penguin only if an image
 // fails to load. Wrapped in framer-motion for idle float / celebrate bounce.
 
@@ -33,7 +33,7 @@ export default function Mascot({ pose = "happy", size = 120, float = true, class
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`${bp}/mascot/${pose}.png`}
-          alt="Atlas the mascot"
+          alt="Pan the mascot"
           width={size}
           height={size}
           draggable={false}

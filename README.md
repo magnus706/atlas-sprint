@@ -1,4 +1,4 @@
-# 🌍 Atlas Sprint
+# 🌍 Pangea
 
 A fast, joyful, mobile-first geography mastery game. Countries, capitals, flags, shapes,
 neighbors, map placement, and top-10 rankings — built as short, tactile rounds around a

@@ -18,6 +18,7 @@ import {
 import { fmtArea, fmtPop } from "@/lib/format";
 import { SKILL_META, type Skill } from "@/lib/engine";
 import WorldMap from "@/components/WorldMap";
+import Mascot from "@/components/Mascot";
 import Flag from "@/components/Flag";
 import CountryShape from "@/components/CountryShape";
 import ContinentIcon from "@/components/ContinentIcon";
@@ -62,7 +63,10 @@ export default function SandboxPage() {
 
   return (
     <div className="safe-bottom px-4 pt-6">
-      <h1 className="mb-1 text-3xl font-extrabold">Explore</h1>
+      <div className="mb-1 flex items-center justify-between">
+        <h1 className="text-3xl font-extrabold">Explore</h1>
+        <Mascot size={48} pose="thinking" />
+      </div>
       <p className="mb-4 text-sm font-bold text-sub">No hearts. No timer. Just the world.</p>
 
       {/* Tabs */}

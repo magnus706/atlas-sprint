@@ -8,9 +8,9 @@ import InstallPrompt from "@/components/InstallPrompt";
 const bp = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 export const metadata: Metadata = {
-  title: "Atlas Sprint — master the world",
+  title: "Pangea — master the world",
   description: "A fast, joyful geography game. Countries, capitals, flags, shapes — one more round?",
-  applicationName: "Atlas Sprint",
+  applicationName: "Pangea",
   icons: {
     icon: [
       { url: `${bp}/favicon.png`, type: "image/png" },
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Atlas Sprint",
+    title: "Pangea",
     statusBarStyle: "default",
   },
 };

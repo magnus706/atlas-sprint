@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { COUNTRIES } from "@/data/countries";
 import { fmtArea, fmtPop } from "@/lib/format";
+import Mascot from "@/components/Mascot";
 import Flag from "@/components/Flag";
 import { Btn, Card, Chip } from "@/components/ui";
 import { GlobeIcon, PinIcon, TrophyIcon } from "@/components/icons";
@@ -50,7 +51,10 @@ export default function RankingsPage() {
 
   return (
     <div className="safe-bottom px-4 pt-6">
-      <h1 className="mb-1 text-3xl font-extrabold">Top 10</h1>
+      <div className="mb-1 flex items-center justify-between">
+        <h1 className="text-3xl font-extrabold">Top 10</h1>
+        <Mascot size={48} pose="celebrate" />
+      </div>
       <p className="mb-4 text-sm font-bold text-sub">
         The world's superlatives — guess them, then browse them.
       </p>

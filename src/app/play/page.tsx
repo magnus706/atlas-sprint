@@ -535,19 +535,22 @@ function PlayInner() {
               onClick={() => setShowQuit(false)}
               className="fixed inset-0 z-50 bg-ink/50 backdrop-blur-sm"
             />
+            {/* flex-centered wrapper — framer's transform animation would
+                overwrite CSS translate-centering and shove the card off-center */}
+            <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-5">
             <motion.div
               initial={{ scale: 0.85, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 320, damping: 26 }}
-              className="fixed left-1/2 top-1/2 z-50 w-[min(340px,88vw)] -translate-x-1/2 -translate-y-1/2 rounded-3xl border-2 border-line bg-white/90 p-6 text-center shadow-[0_10px_40px_rgba(0,0,0,0.2)] backdrop-blur-xl"
+              className="pointer-events-auto w-[min(340px,88vw)] rounded-3xl border-2 border-line bg-white/90 p-6 text-center shadow-[0_10px_40px_rgba(0,0,0,0.2)] backdrop-blur-xl"
             >
               <div className="mb-2 flex justify-center">
                 <Mascot pose="sad" size={104} />
               </div>
               <h3 className="text-xl font-extrabold">Leave the lesson?</h3>
               <p className="mt-1 text-sm font-bold text-sub">
-                Your progress this round won&apos;t count. Atlas would love it if you stayed.
+                Your progress this round won&apos;t count. Pan would love it if you stayed.
               </p>
               <div className="mt-5 flex flex-col gap-2.5">
                 <Btn tone="brand" full onClick={() => { sfx.tap(); setShowQuit(false); }}>
@@ -561,6 +564,7 @@ function PlayInner() {
                 </button>
               </div>
             </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>
@@ -583,6 +587,7 @@ function CountrySpotlight({
 }) {
   const c = byId.get(q.countryId)!;
   const fact = factFor(c.id);
+  const [showMap, setShowMap] = useState(false);
   return (
     <motion.div
       initial={{ y: "100%" }}
@@ -603,19 +608,13 @@ function CountrySpotlight({
           }`}
         >
           <div className="flex items-center gap-2.5">
-            <span
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white ${
-                right ? "bg-brand" : "bg-red"
-              }`}
-            >
-              {right ? <CheckIcon size={18} /> : <CrossIcon size={15} />}
-            </span>
+            <Mascot pose={right ? "celebrate" : "sad"} size={44} float={false} />
             <p className={`text-base font-extrabold leading-tight ${right ? "text-brand-deep" : "text-red-dark"}`}>
               {msg}
             </p>
           </div>
           <Btn tone={right ? "brand" : "red"} size="md" onClick={onContinue}>
-            Continue
+            {right ? "Got it!" : "On it!"}
           </Btn>
         </div>
 
@@ -679,6 +678,50 @@ function CountrySpotlight({
               </p>
             </motion.div>
           )}
+
+          {/* show on map + learn more */}
+          <div className="relative mt-2.5 flex gap-2">
+            {!c.tiny && (
+              <button
+                onClick={() => { sfx.tap(); setShowMap((s) => !s); }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-blue bg-blue-light py-2.5 text-sm font-extrabold text-blue-dark"
+              >
+                <PinIcon size={16} /> {showMap ? "Hide map" : "Show on map"}
+              </button>
+            )}
+            <a
+              href={`https://en.wikipedia.org/wiki/${encodeURIComponent(c.name.replace(/ /g, "_"))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-line bg-white py-2.5 text-sm font-extrabold text-sub"
+            >
+              Learn more ↗
+            </a>
+          </div>
+
+          <AnimatePresence>
+            {showMap && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 28 }}
+                className="relative overflow-hidden"
+              >
+                <div className="mt-2.5">
+                  <WorldMap
+                    focus={c.continent}
+                    height={230}
+                    states={{ [c.numeric]: "target" }}
+                    className="border-2 border-line"
+                  />
+                  <p className="mt-1.5 text-center text-[11px] font-bold text-sub">
+                    {c.name}, pulsing — pinch or scroll to zoom
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.div>

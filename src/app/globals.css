@@ -7,7 +7,8 @@ html {
 }
 
 body {
-  @apply bg-white text-ink font-sans antialiased;
+  /* soft teal-tinted canvas — cards stay white and pop against it */
+  @apply bg-[#EDF8F6] text-ink font-sans antialiased;
 }
 
 @layer utilities {

@@ -121,7 +121,10 @@ function LearnInner() {
 
   return (
     <div className="safe-bottom px-4 pt-6">
-      <h1 className="mb-1 text-3xl font-extrabold">Learn</h1>
+      <div className="mb-1 flex items-center justify-between">
+        <h1 className="text-3xl font-extrabold">Learn</h1>
+        <Mascot size={48} pose="happy" />
+      </div>
       <p className="mb-4 text-sm font-bold text-sub">
         Follow the journey, or go conquer a whole continent.
       </p>

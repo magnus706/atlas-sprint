@@ -408,7 +408,7 @@ export const BADGES: Badge[] = [
   { id: "sprint600", name: "Speedster", desc: "Score 600+ in Sprint", test: (s) => s.sprintBest >= 600 },
   { id: "century", name: "Century", desc: "100 correct answers", test: (s) => s.correct >= 100 },
   { id: "explorer", name: "Explorer", desc: "Inspect 15 countries in Sandbox", test: (s) => s.explored.length >= 15 },
-  { id: "atlas25", name: "Atlas Apprentice", desc: "Touch 25 countries", test: (s) => Object.keys(s.mastery).length >= 25 },
+  { id: "atlas25", name: "Pangea Apprentice", desc: "Touch 25 countries", test: (s) => Object.keys(s.mastery).length >= 25 },
   {
     id: "master10", name: "Cartographer", desc: "Master 10 countries",
     test: (s) => Object.values(s.mastery).filter((m) => masteryState(m) === "Mastered").length >= 10,

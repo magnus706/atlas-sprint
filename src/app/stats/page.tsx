@@ -50,7 +50,7 @@ const BADGE_ICON: Record<string, React.ReactNode> = {
 };
 
 const RANKS: [number, string][] = [
-  [15, "Atlas Legend"],
+  [15, "Pangea Legend"],
   [10, "Cartographer"],
   [6, "Globetrotter"],
   [3, "Traveler"],

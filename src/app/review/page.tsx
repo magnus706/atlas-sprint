@@ -30,7 +30,10 @@ export default function ReviewPage() {
 
   return (
     <div className="safe-bottom px-4 pt-6">
-      <h1 className="mb-1 text-3xl font-extrabold">Review</h1>
+      <div className="mb-1 flex items-center justify-between">
+        <h1 className="text-3xl font-extrabold">Review</h1>
+        <Mascot size={48} pose="thinking" />
+      </div>
       <p className="mb-5 text-sm font-bold text-sub">
         {items.length > 0
           ? "These tripped you up. Two clean answers clear each one."

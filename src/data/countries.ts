@@ -1,4 +1,4 @@
-// Atlas Sprint — core geography dataset.
+// Pangea — core geography dataset.
 // pop is in millions; area is km². numeric = ISO 3166-1 numeric, matching
 // world-atlas topojson feature ids. neighbors lists only countries that are
 // also in this dataset, and is only present when complete (neighbor questions

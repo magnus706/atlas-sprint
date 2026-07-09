@@ -137,8 +137,8 @@ export default function SessionComplete({
         : null;
     const text =
       sprintScore !== undefined
-        ? `I scored ${sprintScore} in Atlas Sprint's 60-second Sprint. Beat me here: ${duelUrl}`
-        : `Atlas Sprint: ${acc}% accuracy, +${xp} XP${state.streak > 0 ? `, ${state.streak}-day streak` : ""}. Think you can beat me?`;
+        ? `I scored ${sprintScore} in Pangea's 60-second Sprint. Beat me here: ${duelUrl}`
+        : `Pangea: ${acc}% accuracy, +${xp} XP${state.streak > 0 ? `, ${state.streak}-day streak` : ""}. Think you can beat me?`;
     try {
       if (navigator.share) {
         await navigator.share({ text });
