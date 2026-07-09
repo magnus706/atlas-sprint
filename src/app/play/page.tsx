@@ -61,7 +61,9 @@ function PlayInner() {
   const skill = (params.get("skill") as Skill | "mix" | null) ?? "mix";
   const nodeIdx = parseInt(params.get("node") ?? "0", 10) || 0;
   const medalId = (params.get("medal") ?? "World") as MedalId;
-  const usesHearts = mode === "daily" || mode === "learn" || mode === "review" || mode === "path";
+  // daily is heart-free: it's the shared scored run — mistakes only cost
+  // accuracy (and leaderboard position), they can never end the run early
+  const usesHearts = mode === "learn" || mode === "review" || mode === "path";
 
   const pathNodes = useMemo(
     () => (mode === "path" && continent !== "World" ? buildPath(continent as Continent) : null),
@@ -313,7 +315,7 @@ function PlayInner() {
       mode === "sprint"
         ? `${SPRINT_SECONDS} seconds. Chain answers for combo points. Go fast.`
         : mode === "daily"
-          ? "10 mixed questions from all over the world. Extend your streak."
+          ? "10 questions, same for everyone today. No hearts — every miss costs score. Extend your streak."
           : mode === "path" && pathNode
             ? pathNode.kind === "checkpoint"
               ? "Everything from this unit, mixed together. Show what stuck."
@@ -396,7 +398,9 @@ function PlayInner() {
           {usesHearts ? (
             <Hearts count={state.hearts} compact />
           ) : (
-            <span className="text-[11px] font-extrabold uppercase tracking-wide text-sub">Free play</span>
+            <span className="text-[11px] font-extrabold uppercase tracking-wide text-sub">
+              {mode === "daily" ? "Scored" : "Free play"}
+            </span>
           )}
         </>
       )}
