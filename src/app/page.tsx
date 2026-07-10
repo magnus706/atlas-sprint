@@ -13,6 +13,7 @@ import {
   STREAK_MILESTONES,
 } from "@/lib/store";
 import { dayKey } from "@/lib/format";
+import { dueSrsKeys } from "@/lib/srs";
 import { CONTINENTS, CONTINENT_META } from "@/data/countries";
 import { Bar, Btn, Card, Hearts, StreakBadge, Ring, SectionTitle } from "@/components/ui";
 import ContinentIcon from "@/components/ContinentIcon";
@@ -84,7 +85,14 @@ export default function Home() {
   const lvl = levelFromXp(state.xp);
   const hour = new Date().getHours();
   const greeting = hour < 5 ? "Night owl" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const weakCount = Object.keys(state.reviewQueue).length;
+  // review = explicit misses ∪ facts due for spaced repetition
+  const weakCount = new Set([
+    ...Object.keys(state.reviewQueue).map((k) => {
+      const [id, s] = k.split("|");
+      return `${s}:${id}`;
+    }),
+    ...dueSrsKeys(state.srs, dayKey()),
+  ]).size;
   const badges = earnedBadges(state);
   const nextMilestone = STREAK_MILESTONES.find((m) => m > state.streak);
 

@@ -21,6 +21,7 @@ import {
   type MedalRecord,
 } from "./medals";
 import { buildPath } from "./paths";
+import { srsNext, type SrsRec } from "./srs";
 
 export type Placement = "explorer" | "traveler" | "globetrotter";
 
@@ -60,6 +61,7 @@ export interface AppState {
   recent: string[]; // last-asked "skill:countryId" keys (repeat avoidance)
   gems: number; // reward currency
   skillStats: Record<string, { r: number; w: number }>; // per-skill accuracy
+  srs: Record<string, SrsRec>; // spaced-repetition schedule per "skill:countryId"
   prefs: Prefs;
 }
 
@@ -95,6 +97,7 @@ const defaultState: AppState = {
   recent: [],
   gems: 0,
   skillStats: {},
+  srs: {},
   prefs: { onboarded: false, focus: "world", pace: "balanced", region: "World" },
 };
 
@@ -201,12 +204,16 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       };
       // repeat-avoidance ring buffer (last ~70 skill:country pairings)
       const recent = [...s.recent.filter((k) => k !== `${skill}:${countryId}`), `${skill}:${countryId}`].slice(-70);
+      // spaced repetition: schedule this fact's next review
+      const srsKey = `${skill}:${countryId}`;
+      const srs = { ...s.srs, [srsKey]: srsNext(s.srs[srsKey], right, dayKey()) };
       return {
         ...s,
         mastery,
         reviewQueue: queue,
         skillStats,
         recent,
+        srs,
         answers: s.answers + 1,
         correct: s.correct + (right ? 1 : 0),
       };

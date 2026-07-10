@@ -8,6 +8,7 @@ import {
   type Country,
 } from "@/data/countries";
 import { hashSeed, mulberry32, pickN, shuffled } from "./format";
+import type { SrsRec } from "./srs";
 
 export type Skill = "capital" | "flag" | "shape" | "locate" | "neighbor" | "rank";
 export type Mode =
@@ -29,7 +30,7 @@ export interface Option {
 
 export interface Question {
   key: string;
-  kind: "mc" | "map" | "order";
+  kind: "mc" | "map" | "order" | "teach";
   skill: Skill;
   prompt: string;
   sub?: string;
@@ -53,6 +54,10 @@ export interface SessionConfig {
   // personalization (optional): weakness-weighted picks, repeat avoidance
   mastery?: Record<string, { r: number; w: number }>;
   recent?: string[]; // recently asked "skill:countryId" keys
+  // spaced repetition: fact schedules + today's key (learning modes pull
+  // due facts first and introduce brand-new facts with a teach card)
+  srs?: Record<string, SrsRec>;
+  today?: string;
 }
 
 const poolFor = (cont?: Continent | "World"): Country[] =>
@@ -309,11 +314,129 @@ const MODE_SKILLS: Record<Mode, Skill[]> = {
   defend: ["capital", "flag", "shape", "locate", "neighbor"],
 };
 
+/**
+ * Learning-mode session builder (path / learn / sandbox):
+ *  1. facts DUE for spaced-repetition review come first — memories get
+ *     refreshed right when they're about to fade
+ *  2. brand-new facts are INTRODUCED with a teach card, quizzed immediately,
+ *     then asked again in a different form at the end of the lesson
+ *  3. leftover slots go to the user's weakest not-yet-due facts
+ */
+function scheduledSession(cfg: SessionConfig, rng: () => number): Question[] {
+  const pool = poolFor(cfg.continent);
+  const scope = cfg.countryIds?.length
+    ? (cfg.countryIds.map((id) => byId.get(id)!).filter(Boolean) as Country[])
+    : pool;
+  const srs = cfg.srs ?? {};
+  const today = cfg.today ?? "9999-99-99"; // no today → nothing counts as due
+  const fixedSkill = cfg.skill && cfg.skill !== "mix" ? cfg.skill : null;
+  const modeSkills = (MODE_SKILLS[cfg.mode].length ? MODE_SKILLS[cfg.mode] : MODE_SKILLS.learn).filter(
+    (s) => s !== "rank"
+  );
+
+  const skillsFor = (c: Country): Skill[] =>
+    (fixedSkill ? [fixedSkill] : modeSkills).filter(
+      (s) =>
+        (s !== "shape" || shapeable(c)) &&
+        (s !== "locate" || locatable(c)) &&
+        (s !== "neighbor" || neighborable(c))
+    );
+
+  interface Fact {
+    c: Country;
+    s: Skill;
+  }
+  const due: Fact[] = [];
+  const fresh: Fact[] = [];
+  const rest: Fact[] = [];
+  for (const c of scope) {
+    for (const s of skillsFor(c)) {
+      const rec = srs[`${s}:${c.id}`];
+      if (!rec) fresh.push({ c, s });
+      else if (rec.due <= today) due.push({ c, s });
+      else rest.push({ c, s });
+    }
+  }
+
+  const N = Math.max(3, cfg.count);
+  const quiz = (f: Fact): Question | null => buildForCountry(f.s, f.c, pool, rng);
+
+  // introduce 1–2 new countries (one fact each), teach-then-test
+  const freshByCountry = shuffled(fresh, rng).filter(
+    (f, i, arr) => arr.findIndex((x) => x.c.id === f.c.id) === i
+  );
+  const introCount = fresh.length === 0 ? 0 : Math.min(2, Math.max(1, Math.floor(N / 4)));
+  const intro = freshByCountry.slice(0, introCount);
+  const introIds = new Set(intro.map((f) => f.c.id));
+
+  // due reviews fill most of the rest
+  const quizBudget = N - intro.length; // intro quizzes counted; variants are a bonus re-ask
+  const duePick = shuffled(due, rng)
+    .filter((f) => !introIds.has(f.c.id))
+    .slice(0, quizBudget > 0 ? Math.ceil(quizBudget * 0.7) : 0);
+
+  // weakest not-due facts (or extra fresh) as filler
+  const fillerNeed = Math.max(0, quizBudget - duePick.length);
+  const fillerPool = [
+    ...shuffled(rest, rng).sort((a, b) => weightFor(b.c, cfg.mastery) - weightFor(a.c, cfg.mastery)),
+    ...freshByCountry.slice(intro.length),
+  ].filter((f) => !introIds.has(f.c.id));
+  const fillers = fillerPool.slice(0, fillerNeed);
+
+  // ---- assemble: teach A, quiz A, reviews…, teach B, quiz B, rest…, re-asks ----
+  const seq: Question[] = [];
+  const dueQs = duePick.map(quiz).filter(Boolean) as Question[];
+  const fillQs = fillers.map(quiz).filter(Boolean) as Question[];
+  const later = [...dueQs.slice(Math.ceil(dueQs.length / 2)), ...fillQs];
+  const earlier = dueQs.slice(0, Math.ceil(dueQs.length / 2));
+
+  const pushIntro = (f: Fact) => {
+    seq.push({
+      key: qKey("teach", f.c.id),
+      kind: "teach",
+      skill: f.s,
+      prompt: `Meet ${f.c.name}`,
+      countryId: f.c.id,
+    });
+    const q = quiz(f);
+    if (q) seq.push(q);
+  };
+
+  if (intro[0]) pushIntro(intro[0]);
+  seq.push(...earlier);
+  if (intro[1]) pushIntro(intro[1]);
+  seq.push(...later);
+  // second ask of each introduced fact, in a fresh variant, spaced to the end
+  for (const f of intro) {
+    const again = quiz(f);
+    if (again) seq.push(again);
+  }
+  return seq;
+}
+
+/** One fresh question for a specific fact — used for in-session retries. */
+export function buildQuizFor(
+  skill: Skill,
+  countryId: string,
+  continent?: Continent | "World"
+): Question | null {
+  const c = byId.get(countryId);
+  if (!c) return null;
+  const rng = mulberry32(hashSeed(`${Math.random()}`));
+  return buildForCountry(skill, c, poolFor(continent), rng);
+}
+
 export function generateSession(cfg: SessionConfig): Question[] {
   const rng = mulberry32(hashSeed(cfg.seed ?? `${Math.random()}`));
   const pool = poolFor(cfg.continent);
   const used = new Set<string>();
   const out: Question[] = [];
+
+  // learning modes get the spaced-repetition builder (due-first + teach cards);
+  // exams (daily/challenge/defend), sprint and rankings keep their own shapes
+  if (cfg.mode === "path" || cfg.mode === "learn" || cfg.mode === "sandbox") {
+    return scheduledSession(cfg, rng);
+  }
 
   // Explicit scope (path lessons, challenges, medal defenses): one question
   // per country, distractors drawn from the wider continent/world pool.

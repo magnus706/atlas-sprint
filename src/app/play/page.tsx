@@ -7,12 +7,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  buildQuizFor,
   generateSession,
   SKILL_META,
   type Mode,
   type Question,
   type Skill,
 } from "@/lib/engine";
+import { dueSrsKeys } from "@/lib/srs";
 import MedalArt from "@/components/MedalArt";
 import { useProgress } from "@/lib/store";
 import { dayKey } from "@/lib/format";
@@ -88,6 +90,8 @@ function PlayInner() {
   const [endedEarly, setEndedEarly] = useState(false);
   const [mapStates, setMapStates] = useState<Record<string, TileState>>({});
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // missed questions come back at the end of the lesson (once each)
+  const retried = useRef(new Set<string>());
   // idempotency: each question index advances exactly once (guards double-taps)
   const advancedFrom = useRef(-1);
   const heartsRef = useRef(state.hearts);
@@ -115,9 +119,13 @@ function PlayInner() {
     setTimeLeft(SPRINT_SECONDS);
     setEndedEarly(false);
     advancedFrom.current = -1;
+    retried.current = new Set();
     // personalization inputs — the shared seeded daily must stay identical for
     // everyone, so it gets no personal state
-    const personal = mode === "daily" ? {} : { mastery: state.mastery, recent: state.recent };
+    const personal =
+      mode === "daily"
+        ? {}
+        : { mastery: state.mastery, recent: state.recent, srs: state.srs, today: dayKey() };
     if (mode === "path" && pathNode) {
       setSession(
         generateSession({
@@ -155,13 +163,18 @@ function PlayInner() {
     } else {
       const count =
         mode === "daily" ? 10 : mode === "sprint" ? 80 : mode === "rankings" ? 8 : paceCount;
-      const reviewKeys = Object.keys(state.reviewQueue);
+      // review covers explicit misses PLUS everything due for spaced repetition
+      const dueAsQueue = dueSrsKeys(state.srs, dayKey()).map((k) => {
+        const [s, id] = k.split(":");
+        return `${id}|${s}`;
+      });
+      const reviewKeys = Array.from(new Set([...Object.keys(state.reviewQueue), ...dueAsQueue]));
       setSession(
         generateSession({
           mode,
           continent: mode === "daily" || mode === "sprint" ? "World" : continent,
           skill: skill === "mix" ? undefined : skill,
-          count: mode === "review" ? Math.max(5, Math.min(10, reviewKeys.length)) : count,
+          count: mode === "review" ? Math.max(5, Math.min(12, reviewKeys.length)) : count,
           seed: mode === "daily" ? `daily-${dayKey()}` : undefined,
           reviewKeys,
           ...personal,
@@ -216,6 +229,14 @@ function PlayInner() {
         setCombo(0);
         sfx.wrong();
         if (usesHearts) spendHeart();
+        // learning modes: the miss comes back at the end of this lesson so
+        // the session isn't over until the fact stuck at least once
+        const learning = mode === "path" || mode === "learn" || mode === "sandbox" || mode === "review";
+        if (learning && q.countryId && !retried.current.has(q.key)) {
+          retried.current.add(q.key);
+          const again = buildQuizFor(q.skill, q.countryId, continent);
+          if (again) setSession((s) => (s ? [...s, again] : s));
+        }
       }
 
       // sprint auto-advances (speed mode); other modes wait for Continue so
@@ -472,6 +493,7 @@ function PlayInner() {
         {q.kind === "order" && (
           <OrderQuestion q={q} phase={phase} onDone={(right) => finishAnswer(right, null)} />
         )}
+        {q.kind === "teach" && <TeachCard q={q} onGot={() => advance(idx)} />}
       </motion.div>
 
       {/* Answer sheet — result + country spotlight card */}
@@ -572,6 +594,62 @@ function PlayInner() {
           </>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ---------- Teach card: introduce a brand-new country before quizzing it ----------
+
+function TeachCard({ q, onGot }: { q: Question; onGot: () => void }) {
+  const c = byId.get(q.countryId)!;
+  const fact = factFor(c.id);
+  return (
+    <div className="flex flex-1 flex-col">
+      <motion.p
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-2 text-center text-xs font-extrabold uppercase tracking-widest text-brand"
+      >
+        New country
+      </motion.p>
+      <h2 className="mb-4 text-center text-2xl font-extrabold leading-tight">{q.prompt}</h2>
+
+      <div className="rounded-2xl border-2 border-brand bg-white p-4">
+        <div className="flex items-center gap-3">
+          <Flag countryId={c.id} size="lg" className="!h-16 !w-24 rounded-xl" />
+          <div>
+            <p className="text-xl font-extrabold leading-tight">{c.name}</p>
+            <p className="flex items-center gap-1.5 text-xs font-bold text-sub">
+              <ContinentIcon continent={c.continent} size={14} /> {c.continent}
+            </p>
+            <p className="mt-1 text-sm font-extrabold text-brand-dark">Capital: {c.capital}</p>
+          </div>
+        </div>
+
+        {!c.tiny && !c.noShape && (
+          <div className="mt-3 flex justify-center rounded-xl border-2 border-line bg-panel p-2">
+            <CountryShape countryId={c.id} height={110} width={190} fill="#00B2A9" />
+          </div>
+        )}
+
+        {fact && (
+          <div className="mt-3 flex items-start gap-2 rounded-xl border-2 border-yellow bg-yellow-light px-3 py-2.5">
+            <SparkleIcon size={18} className="mt-0.5 shrink-0" />
+            <p className="text-[13px] font-bold leading-snug text-ink">{fact}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-center gap-2">
+        <Mascot size={40} float={false} />
+        <p className="text-xs font-bold text-sub">Take a good look — Pan will quiz you on this.</p>
+      </div>
+
+      <div className="mt-auto pt-4">
+        <Btn full onClick={() => { sfx.tap(); onGot(); }}>
+          Got it — quiz me
+        </Btn>
+      </div>
     </div>
   );
 }
