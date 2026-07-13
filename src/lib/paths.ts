@@ -1,26 +1,21 @@
-// Duolingo-style lesson path: each continent becomes a sequence of units,
-// each unit = a handful of countries drilled through 3 skill lessons + a checkpoint.
+// Duolingo-style lesson path: each continent is a sequence of units.
+// A unit (~7 countries) = two FOCUS-SET lessons (3-4 new countries drilled
+// repeatedly), a map-heavy power drill over the whole unit, and a checkpoint.
 
 import { ofContinent, type Continent } from "@/data/countries";
-import { SKILL_META, type Skill } from "./engine";
+
+export type PathNodeKind = "learn" | "drill" | "checkpoint";
 
 export interface PathNode {
   idx: number;
   unit: number;
-  kind: "lesson" | "checkpoint";
-  skill?: Skill; // undefined → mixed (checkpoints)
-  countryIds: string[];
+  kind: PathNodeKind;
+  countryIds: string[]; // the focus set (learn) or the whole unit (drill/checkpoint)
+  unitIds: string[]; // every country in this unit
   title: string;
 }
 
 const UNIT_SIZE = 7;
-
-// rotate skill sets so units feel different from each other
-const UNIT_SKILLS: Skill[][] = [
-  ["flag", "capital", "locate"],
-  ["capital", "shape", "locate"],
-  ["flag", "capital", "neighbor"],
-];
 
 const cache = new Map<Continent, PathNode[]>();
 
@@ -40,22 +35,40 @@ export function buildPath(cont: Continent): PathNode[] {
 
   const nodes: PathNode[] = [];
   units.forEach((ids, u) => {
-    const skills = UNIT_SKILLS[u % UNIT_SKILLS.length];
-    for (const s of skills) {
+    const setA = ids.slice(0, Math.ceil(ids.length / 2));
+    const setB = ids.slice(Math.ceil(ids.length / 2));
+    nodes.push({
+      idx: nodes.length,
+      unit: u + 1,
+      kind: "learn",
+      countryIds: setA,
+      unitIds: ids,
+      title: "New countries",
+    });
+    if (setB.length) {
       nodes.push({
         idx: nodes.length,
         unit: u + 1,
-        kind: "lesson",
-        skill: s,
-        countryIds: ids,
-        title: SKILL_META[s].label,
+        kind: "learn",
+        countryIds: setB,
+        unitIds: ids,
+        title: "New countries",
       });
     }
     nodes.push({
       idx: nodes.length,
       unit: u + 1,
+      kind: "drill",
+      countryIds: ids,
+      unitIds: ids,
+      title: "Power drill",
+    });
+    nodes.push({
+      idx: nodes.length,
+      unit: u + 1,
       kind: "checkpoint",
       countryIds: ids,
+      unitIds: ids,
       title: `Unit ${u + 1} checkpoint`,
     });
   });

@@ -28,9 +28,20 @@ export interface Option {
   flagOf?: string; // render a flag instead of text
 }
 
+export interface MatchPair {
+  cid: string;
+  a: string; // left column label (country name); for flag matches the flag renders instead
+  b: string; // right column label (capital or country name)
+  aFlag?: boolean; // left column shows the country's flag
+}
+
 export interface Question {
   key: string;
-  kind: "mc" | "map" | "order" | "teach";
+  kind: "mc" | "map" | "order" | "intro" | "match";
+  /** intro cards: the focus set being introduced */
+  setIds?: string[];
+  /** match exercises: the pairs to connect */
+  pairs?: MatchPair[];
   skill: Skill;
   prompt: string;
   sub?: string;
@@ -318,9 +329,9 @@ const MODE_SKILLS: Record<Mode, Skill[]> = {
  * Learning-mode session builder (path / learn / sandbox):
  *  1. facts DUE for spaced-repetition review come first — memories get
  *     refreshed right when they're about to fade
- *  2. brand-new facts are INTRODUCED with a teach card, quizzed immediately,
- *     then asked again in a different form at the end of the lesson
- *  3. leftover slots go to the user's weakest not-yet-due facts
+ *  2. leftover slots go to the user's weakest not-yet-due facts
+ * (structured introduction of new countries lives in the path's focus-set
+ *  lessons — see generateFocusLesson)
  */
 function scheduledSession(cfg: SessionConfig, rng: () => number): Question[] {
   const pool = poolFor(cfg.continent);
@@ -361,55 +372,135 @@ function scheduledSession(cfg: SessionConfig, rng: () => number): Question[] {
   const N = Math.max(3, cfg.count);
   const quiz = (f: Fact): Question | null => buildForCountry(f.s, f.c, pool, rng);
 
-  // introduce 1–2 new countries (one fact each), teach-then-test
-  const freshByCountry = shuffled(fresh, rng).filter(
-    (f, i, arr) => arr.findIndex((x) => x.c.id === f.c.id) === i
-  );
-  const introCount = fresh.length === 0 ? 0 : Math.min(2, Math.max(1, Math.floor(N / 4)));
-  const intro = freshByCountry.slice(0, introCount);
-  const introIds = new Set(intro.map((f) => f.c.id));
-
-  // due reviews fill most of the rest
-  const quizBudget = N - intro.length; // intro quizzes counted; variants are a bonus re-ask
-  const duePick = shuffled(due, rng)
-    .filter((f) => !introIds.has(f.c.id))
-    .slice(0, quizBudget > 0 ? Math.ceil(quizBudget * 0.7) : 0);
-
-  // weakest not-due facts (or extra fresh) as filler
-  const fillerNeed = Math.max(0, quizBudget - duePick.length);
+  // due reviews take up to ~70% of the session
+  const duePick = shuffled(due, rng).slice(0, Math.ceil(N * 0.7));
+  // weakest not-due (or unseen) facts fill the rest
   const fillerPool = [
     ...shuffled(rest, rng).sort((a, b) => weightFor(b.c, cfg.mastery) - weightFor(a.c, cfg.mastery)),
-    ...freshByCountry.slice(intro.length),
-  ].filter((f) => !introIds.has(f.c.id));
-  const fillers = fillerPool.slice(0, fillerNeed);
+    ...shuffled(fresh, rng),
+  ];
+  const fillers = fillerPool.slice(0, Math.max(0, N - duePick.length));
 
-  // ---- assemble: teach A, quiz A, reviews…, teach B, quiz B, rest…, re-asks ----
-  const seq: Question[] = [];
-  const dueQs = duePick.map(quiz).filter(Boolean) as Question[];
-  const fillQs = fillers.map(quiz).filter(Boolean) as Question[];
-  const later = [...dueQs.slice(Math.ceil(dueQs.length / 2)), ...fillQs];
-  const earlier = dueQs.slice(0, Math.ceil(dueQs.length / 2));
+  const seq = [...duePick, ...fillers].map(quiz).filter(Boolean) as Question[];
+  return seq.sort((a, b) => difficultyOf(a, cfg) - difficultyOf(b, cfg));
+}
 
-  const pushIntro = (f: Fact) => {
-    seq.push({
-      key: qKey("teach", f.c.id),
-      kind: "teach",
-      skill: f.s,
-      prompt: `Meet ${f.c.name}`,
-      countryId: f.c.id,
-    });
-    const q = quiz(f);
-    if (q) seq.push(q);
+// ---------- Focus-set lessons (the Duolingo way) ----------
+
+/** Match exercise: connect 3-4 countries to their capitals or flags. */
+function matchQ(set: Country[], skill: "capital" | "flag", rng: () => number): Question {
+  const pairs: MatchPair[] = set.map((c) => ({
+    cid: c.id,
+    a: c.name,
+    b: skill === "capital" ? c.capital : c.name,
+    aFlag: skill === "flag",
+  }));
+  return {
+    key: qKey(`match-${skill}`, set.map((c) => c.id).join("-")),
+    kind: "match",
+    skill,
+    prompt: skill === "capital" ? "Match country and capital" : "Match flag and country",
+    sub: "Tap one from each side",
+    countryId: "",
+    pairs: shuffled(pairs, rng),
   };
+}
 
-  if (intro[0]) pushIntro(intro[0]);
-  seq.push(...earlier);
-  if (intro[1]) pushIntro(intro[1]);
-  seq.push(...later);
-  // second ask of each introduced fact, in a fresh variant, spaced to the end
-  for (const f of intro) {
-    const again = quiz(f);
-    if (again) seq.push(again);
+export interface LessonOpts {
+  continent?: Continent | "World";
+  srs?: Record<string, SrsRec>;
+  today?: string;
+  mastery?: Record<string, { r: number; w: number }>;
+}
+
+/**
+ * Focus-set lesson: 3-4 countries, each fact touched 4+ times with escalating
+ * difficulty — the structure Duolingo uses for new vocabulary:
+ *   warm-up (due reviews) → meet the set → match capitals → easy MC each →
+ *   match flags → harder recall each. Misses recycle via the in-session retry.
+ */
+export function generateFocusLesson(
+  setIds: string[],
+  opts: LessonOpts
+): Question[] {
+  const rng = mulberry32(hashSeed(`${Math.random()}`));
+  const pool = poolFor(opts.continent);
+  const set = setIds.map((id) => byId.get(id)!).filter(Boolean) as Country[];
+  if (!set.length) return [];
+  const seq: Question[] = [];
+
+  // 1) warm-up: up to 2 spaced-repetition reviews from outside the set
+  if (opts.srs && opts.today) {
+    const dueOutside = Object.entries(opts.srs)
+      .filter(([, r]) => r.due <= opts.today!)
+      .map(([k]) => {
+        const [s, id] = k.split(":") as [Skill, string];
+        return { s, c: byId.get(id) };
+      })
+      .filter(
+        (f): f is { s: Skill; c: Country } =>
+          !!f.c && !setIds.includes(f.c.id) && pool.some((p) => p.id === f.c!.id)
+      );
+    for (const f of pickN(dueOutside, 2, rng)) {
+      const q = buildForCountry(f.s, f.c, pool, rng);
+      if (q) seq.push(q);
+    }
+  }
+
+  // 2) meet the set
+  seq.push({
+    key: qKey("intro", setIds.join("-")),
+    kind: "intro",
+    skill: "capital",
+    prompt: set.length > 1 ? `Meet ${set.length} new countries` : `Meet ${set[0].name}`,
+    countryId: "",
+    setIds,
+  });
+
+  // 3) match country ↔ capital
+  seq.push(matchQ(set, "capital", rng));
+
+  // 4) easy recognition: one flag question per country
+  for (const c of shuffled(set, rng)) {
+    const q = flagQ(c, pool, rng);
+    if (q) seq.push(q);
+  }
+
+  // 5) match flag ↔ country
+  seq.push(matchQ(set, "flag", rng));
+
+  // 6) harder recall: capital or map placement per country
+  for (const c of shuffled(set, rng)) {
+    const q = locatable(c) && rng() < 0.5 ? locateQ(c) : capitalQ(c, pool, rng);
+    if (q) seq.push(q);
+  }
+
+  return seq;
+}
+
+/**
+ * Power drill: the whole unit, map/shape-heavy — the "click them all"
+ * energy of map-drill apps. No introductions, just reps.
+ */
+export function generateDrill(unitIds: string[], opts: LessonOpts): Question[] {
+  const rng = mulberry32(hashSeed(`${Math.random()}`));
+  const pool = poolFor(opts.continent);
+  const set = unitIds.map((id) => byId.get(id)!).filter(Boolean) as Country[];
+  if (!set.length) return [];
+  const seq: Question[] = [];
+
+  const half = Math.ceil(set.length / 2);
+  const groupA = set.slice(0, half);
+  const groupB = set.slice(half).length >= 2 ? set.slice(half) : groupA;
+  seq.push(matchQ(groupA, "capital", rng));
+  seq.push(matchQ(groupB, "flag", rng));
+
+  // locate every country in the unit
+  for (const c of shuffled(set.filter(locatable), rng)) seq.push(locateQ(c));
+  // a few silhouettes
+  for (const c of pickN(set.filter(shapeable), Math.min(3, set.length), rng)) {
+    const q = shapeQ(c, pool, rng);
+    if (q) seq.push(q);
   }
   return seq;
 }
@@ -434,7 +525,7 @@ export function generateSession(cfg: SessionConfig): Question[] {
 
   // learning modes get the spaced-repetition builder (due-first + teach cards);
   // exams (daily/challenge/defend), sprint and rankings keep their own shapes
-  if (cfg.mode === "path" || cfg.mode === "learn" || cfg.mode === "sandbox") {
+  if (cfg.mode === "learn" || cfg.mode === "sandbox") {
     return scheduledSession(cfg, rng);
   }
 

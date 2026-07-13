@@ -29,6 +29,8 @@ import {
   ChevronIcon,
   LockIcon,
   SkillIcon,
+  SparkleIcon,
+  TargetIcon,
   TrophyIcon,
   XpIcon,
 } from "@/components/icons";
@@ -104,8 +106,10 @@ function LearnInner() {
             <LockIcon size={26} />
           ) : node.kind === "checkpoint" ? (
             <TrophyIcon size={30} />
+          ) : node.kind === "drill" ? (
+            <TargetIcon size={28} />
           ) : (
-            <SkillIcon skill={node.skill!} size={28} />
+            <SparkleIcon size={28} />
           )}
         </motion.button>
         {/* stars under completed nodes */}
@@ -176,7 +180,7 @@ function LearnInner() {
           <div className="flex flex-col items-center gap-5 pb-4">
             {nodes.map((node) => (
               <div key={node.idx} className="flex w-full flex-col items-center">
-                {node.kind === "lesson" && node.idx > 0 && nodes[node.idx - 1].unit !== node.unit && (
+                {node.idx > 0 && nodes[node.idx - 1].unit !== node.unit && (
                   <div className="mb-5 mt-2 flex w-full items-center gap-3">
                     <div className="h-0.5 flex-1 bg-line" />
                     <span className="text-xs font-extrabold uppercase tracking-widest text-sub">

@@ -8,8 +8,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   buildQuizFor,
+  generateDrill,
+  generateFocusLesson,
   generateSession,
   SKILL_META,
+  type MatchPair,
   type Mode,
   type Question,
   type Skill,
@@ -92,6 +95,8 @@ function PlayInner() {
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // missed questions come back at the end of the lesson (once each)
   const retried = useRef(new Set<string>());
+  // only a WRONG answer may end the run on 0 hearts — never an intro/teach step
+  const lastWrong = useRef(false);
   // idempotency: each question index advances exactly once (guards double-taps)
   const advancedFrom = useRef(-1);
   const heartsRef = useRef(state.hearts);
@@ -99,8 +104,9 @@ function PlayInner() {
   const [showQuit, setShowQuit] = useState(false);
   const quitHref = mode === "path" || mode === "challenge" || mode === "defend" ? "/learn" : "/";
   // friend-duel deep link: /play?mode=sprint&target=<score>&from=<name>
-  const duelTarget = parseInt(params.get("target") ?? "0", 10) || 0;
-  const duelFrom = params.get("from") ?? "";
+  // (clamped — URL params are untrusted input)
+  const duelTarget = Math.min(99999, Math.max(0, parseInt(params.get("target") ?? "0", 10) || 0));
+  const duelFrom = (params.get("from") ?? "").slice(0, 24);
 
   // Build the session
   useEffect(() => {
@@ -127,16 +133,22 @@ function PlayInner() {
         ? {}
         : { mastery: state.mastery, recent: state.recent, srs: state.srs, today: dayKey() };
     if (mode === "path" && pathNode) {
-      setSession(
-        generateSession({
-          mode,
-          continent,
-          skill: pathNode.skill,
-          count: pathNode.kind === "checkpoint" ? 12 : 8,
-          countryIds: pathNode.countryIds,
-          ...personal,
-        })
-      );
+      // focus-set lessons and drills have their own builders; checkpoints are exams
+      if (pathNode.kind === "learn") {
+        setSession(generateFocusLesson(pathNode.countryIds, { continent, ...personal }));
+      } else if (pathNode.kind === "drill") {
+        setSession(generateDrill(pathNode.unitIds, { continent, ...personal }));
+      } else {
+        setSession(
+          generateSession({
+            mode,
+            continent,
+            count: 12,
+            countryIds: pathNode.countryIds,
+            ...personal,
+          })
+        );
+      }
     } else if (mode === "challenge" && continent !== "World" && skill !== "mix") {
       const pool = challengePool(continent as Continent, skill);
       setSession(
@@ -210,7 +222,7 @@ function PlayInner() {
   const total = mode === "sprint" ? null : session?.length ?? 0;
 
   const finishAnswer = useCallback(
-    (right: boolean, pickedId: string | null) => {
+    (right: boolean, pickedId: string | null, o?: { noHeart?: boolean }) => {
       if (!q || phase !== "question") return;
       setPicked(pickedId);
       setLastRight(right);
@@ -218,6 +230,7 @@ function PlayInner() {
       setResults((r) => [...r, { q, right }]);
       if (q.countryId) recordAnswer(q.countryId, q.skill, right);
 
+      lastWrong.current = !right && !o?.noHeart;
       if (right) {
         const newCombo = combo + 1;
         setCombo(newCombo);
@@ -228,12 +241,14 @@ function PlayInner() {
       } else {
         setCombo(0);
         sfx.wrong();
-        if (usesHearts) spendHeart();
-        // learning modes: the miss comes back at the end of this lesson so
-        // the session isn't over until the fact stuck at least once
+        if (usesHearts && !o?.noHeart) spendHeart();
+        // learning modes: the miss comes back at the end of this lesson.
+        // Keyed by FACT (skill:country), not question id — otherwise a missed
+        // retry would spawn another retry forever and the lesson never ends.
         const learning = mode === "path" || mode === "learn" || mode === "sandbox" || mode === "review";
-        if (learning && q.countryId && !retried.current.has(q.key)) {
-          retried.current.add(q.key);
+        const factKey = `${q.skill}:${q.countryId}`;
+        if (learning && q.countryId && !retried.current.has(factKey)) {
+          retried.current.add(factKey);
           const again = buildQuizFor(q.skill, q.countryId, continent);
           if (again) setSession((s) => (s ? [...s, again] : s));
         }
@@ -257,12 +272,14 @@ function PlayInner() {
       advancedFrom.current = fromIdx;
       setPicked(null);
       setMapStates({});
-      // heartsRef holds the post-spend value by the time we advance
-      if (usesHearts && heartsRef.current <= 0) {
+      // heartsRef holds the post-spend value by the time we advance; only a
+      // wrong answer may end the run (intro cards must never trigger this)
+      if (usesHearts && heartsRef.current <= 0 && lastWrong.current) {
         setEndedEarly(true);
         setPhase("done");
         return;
       }
+      lastWrong.current = false;
       setIdx((i) => {
         const next = i + 1;
         if (session && next >= session.length) {
@@ -314,6 +331,26 @@ function PlayInner() {
     );
   }
 
+  // ---------- out of hearts: block entry to heart-gated lessons ----------
+  if (phase === "intro" && usesHearts && state.hearts <= 0) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+        <Mascot size={130} pose="sad" />
+        <h1 className="mt-5 text-3xl font-extrabold">No hearts left</h1>
+        <p className="mt-2 max-w-xs text-sm font-bold text-sub">
+          Hearts refill at midnight. Meanwhile, free practice never costs hearts — and it
+          still sharpens your skills.
+        </p>
+        <Link href="/sandbox" className="mt-8 w-full max-w-xs">
+          <Btn full>Free practice</Btn>
+        </Link>
+        <Link href={quitHref} className="mt-3 text-sm font-extrabold uppercase tracking-wide text-sub">
+          Back
+        </Link>
+      </div>
+    );
+  }
+
   // ---------- intro splash ----------
   if (phase === "intro") {
     const isLearnContinent = continent !== "World" && mode === "learn";
@@ -340,7 +377,9 @@ function PlayInner() {
           : mode === "path" && pathNode
             ? pathNode.kind === "checkpoint"
               ? "Everything from this unit, mixed together. Show what stuck."
-              : `${pathNode.countryIds.length} countries from this unit. Pass to unlock the next lesson.`
+              : pathNode.kind === "drill"
+                ? "The whole unit, map-heavy and fast. Reps make champions."
+                : `${pathNode.countryIds.length} new countries. You'll meet them, match them, and drill them until they stick.`
             : mode === "challenge"
               ? `Every country, one question each. Score ${CHALLENGE_PASS}%+ to conquer it. No hearts — just you and the map.`
               : mode === "defend"
@@ -493,7 +532,15 @@ function PlayInner() {
         {q.kind === "order" && (
           <OrderQuestion q={q} phase={phase} onDone={(right) => finishAnswer(right, null)} />
         )}
-        {q.kind === "teach" && <TeachCard q={q} onGot={() => advance(idx)} />}
+        {q.kind === "intro" && <IntroCard q={q} onGot={() => advance(idx)} />}
+        {q.kind === "match" && (
+          <MatchQuestion
+            key={q.key}
+            q={q}
+            onPair={(cid, firstTry) => recordAnswer(cid, q.skill, firstTry)}
+            onDone={(allFirstTry) => finishAnswer(allFirstTry, null, { noHeart: true })}
+          />
+        )}
       </motion.div>
 
       {/* Answer sheet — result + country spotlight card */}
@@ -598,11 +645,10 @@ function PlayInner() {
   );
 }
 
-// ---------- Teach card: introduce a brand-new country before quizzing it ----------
+// ---------- Intro card: meet the lesson's focus set ----------
 
-function TeachCard({ q, onGot }: { q: Question; onGot: () => void }) {
-  const c = byId.get(q.countryId)!;
-  const fact = factFor(c.id);
+function IntroCard({ q, onGot }: { q: Question; onGot: () => void }) {
+  const set = (q.setIds ?? []).map((id) => byId.get(id)!).filter(Boolean);
   return (
     <div className="flex flex-1 flex-col">
       <motion.p
@@ -610,46 +656,150 @@ function TeachCard({ q, onGot }: { q: Question; onGot: () => void }) {
         animate={{ opacity: 1, y: 0 }}
         className="mb-2 text-center text-xs font-extrabold uppercase tracking-widest text-brand"
       >
-        New country
+        This lesson
       </motion.p>
       <h2 className="mb-4 text-center text-2xl font-extrabold leading-tight">{q.prompt}</h2>
 
-      <div className="rounded-2xl border-2 border-brand bg-white p-4">
-        <div className="flex items-center gap-3">
-          <Flag countryId={c.id} size="lg" className="!h-16 !w-24 rounded-xl" />
-          <div>
-            <p className="text-xl font-extrabold leading-tight">{c.name}</p>
-            <p className="flex items-center gap-1.5 text-xs font-bold text-sub">
-              <ContinentIcon continent={c.continent} size={14} /> {c.continent}
-            </p>
-            <p className="mt-1 text-sm font-extrabold text-brand-dark">Capital: {c.capital}</p>
-          </div>
-        </div>
-
-        {!c.tiny && !c.noShape && (
-          <div className="mt-3 flex justify-center rounded-xl border-2 border-line bg-panel p-2">
-            <CountryShape countryId={c.id} height={110} width={190} fill="#00B2A9" />
-          </div>
-        )}
-
-        {fact && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl border-2 border-yellow bg-yellow-light px-3 py-2.5">
-            <SparkleIcon size={18} className="mt-0.5 shrink-0" />
-            <p className="text-[13px] font-bold leading-snug text-ink">{fact}</p>
-          </div>
-        )}
+      <div className="flex flex-col gap-2.5">
+        {set.map((c, i) => (
+          <motion.div
+            key={c.id}
+            initial={{ opacity: 0, x: -16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 + i * 0.12 }}
+            className="flex items-center gap-3 rounded-2xl border-2 border-brand/40 bg-white p-3"
+          >
+            <Flag countryId={c.id} size="md" className="!h-10 !w-[60px] rounded-lg" />
+            <div className="flex-1">
+              <p className="text-base font-extrabold leading-tight">{c.name}</p>
+              <p className="text-sm font-bold text-brand-dark">{c.capital}</p>
+            </div>
+            {!c.tiny && !c.noShape && (
+              <CountryShape countryId={c.id} width={54} height={44} fill="#00B2A9" />
+            )}
+          </motion.div>
+        ))}
       </div>
 
       <div className="mt-3 flex items-center justify-center gap-2">
         <Mascot size={40} float={false} />
-        <p className="text-xs font-bold text-sub">Take a good look — Pan will quiz you on this.</p>
+        <p className="text-xs font-bold text-sub">
+          Study them — by the end of this lesson you&apos;ll know all {set.length}.
+        </p>
       </div>
 
       <div className="mt-auto pt-4">
         <Btn full onClick={() => { sfx.tap(); onGot(); }}>
-          Got it — quiz me
+          Let&apos;s learn them
         </Btn>
       </div>
+    </div>
+  );
+}
+
+// ---------- Match exercise: tap the pairs ----------
+
+function MatchQuestion({
+  q,
+  onPair,
+  onDone,
+}: {
+  q: Question;
+  onPair: (cid: string, firstTry: boolean) => void;
+  onDone: (allFirstTry: boolean) => void;
+}) {
+  const pairs = q.pairs ?? [];
+  const [sel, setSel] = useState<string | null>(null);
+  const [matched, setMatched] = useState<Set<string>>(new Set());
+  const [flash, setFlash] = useState<string | null>(null);
+  const missed = useRef(new Set<string>());
+  const finished = useRef(false);
+  // right column in its own stable shuffled order
+  const rightOrder = useMemo(
+    () => [...pairs].sort((a, b) => (a.b + a.cid).localeCompare(b.b + b.cid)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [q.key]
+  );
+
+  const tapLeft = (cid: string) => {
+    if (matched.has(cid)) return;
+    sfx.tap();
+    setSel(cid);
+  };
+
+  const tapRight = (cid: string) => {
+    if (matched.has(cid) || !sel) return;
+    if (cid === sel) {
+      sfx.correct();
+      onPair(sel, !missed.current.has(sel));
+      const next = new Set(matched);
+      next.add(sel);
+      setMatched(next);
+      setSel(null);
+      if (next.size === pairs.length && !finished.current) {
+        finished.current = true;
+        setTimeout(() => onDone(missed.current.size === 0), 350);
+      }
+    } else {
+      sfx.wrong();
+      missed.current.add(sel);
+      setFlash(cid);
+      setTimeout(() => setFlash(null), 400);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <h2 className="mb-1 text-center text-2xl font-extrabold">{q.prompt}</h2>
+      <p className="mb-4 text-center text-sm font-bold text-sub">{q.sub}</p>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        {/* left column: countries (or flags) */}
+        <div className="flex flex-col gap-2.5">
+          {pairs.map((p) => (
+            <motion.button
+              key={`l-${p.cid}`}
+              whileTap={!matched.has(p.cid) ? { scale: 0.96 } : undefined}
+              onClick={() => tapLeft(p.cid)}
+              disabled={matched.has(p.cid)}
+              className={`flex min-h-[58px] items-center justify-center rounded-2xl border-2 p-2 font-extrabold transition-colors ${
+                matched.has(p.cid)
+                  ? "border-brand bg-brand-light text-brand-deep opacity-60"
+                  : sel === p.cid
+                    ? "border-blue bg-blue-light text-blue-dark"
+                    : "border-line bg-white shadow-[0_3px_0_#E5E5E5]"
+              }`}
+            >
+              {p.aFlag ? <Flag countryId={p.cid} size="md" className="!h-9 !w-14" /> : <span className="text-[15px] leading-tight">{p.a}</span>}
+            </motion.button>
+          ))}
+        </div>
+        {/* right column: capitals or country names, shuffled */}
+        <div className="flex flex-col gap-2.5">
+          {rightOrder.map((p) => (
+            <motion.button
+              key={`r-${p.cid}`}
+              whileTap={!matched.has(p.cid) ? { scale: 0.96 } : undefined}
+              animate={flash === p.cid ? { x: [0, -6, 6, 0] } : {}}
+              onClick={() => tapRight(p.cid)}
+              disabled={matched.has(p.cid)}
+              className={`flex min-h-[58px] items-center justify-center rounded-2xl border-2 p-2 text-[15px] font-extrabold leading-tight transition-colors ${
+                matched.has(p.cid)
+                  ? "border-brand bg-brand-light text-brand-deep opacity-60"
+                  : flash === p.cid
+                    ? "border-red bg-red-light text-red-dark"
+                    : "border-line bg-white shadow-[0_3px_0_#E5E5E5]"
+              }`}
+            >
+              {p.b}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-4 text-center text-xs font-bold text-sub">
+        Mistakes here don&apos;t cost hearts — just keep matching.
+      </p>
     </div>
   );
 }
