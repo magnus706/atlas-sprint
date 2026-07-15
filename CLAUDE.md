@@ -34,7 +34,7 @@ Owner: Magnus (magnus706). Norwegian; non-US founder.
 ## Architecture map
 
 ```
-src/data/countries.ts   112 countries: capital, ISO codes, pop, area, borders
+src/data/countries.ts   146 countries: capital, ISO codes, pop, area, borders
 src/data/facts.ts       one fun fact per country (answer sheet "Did you know?")
 src/lib/engine.ts       question generation. Kinds: mc, map, order, intro, match.
                         generateFocusLesson (3-4 country sets, Duolingo-style),
@@ -88,7 +88,7 @@ src/components/WorldMap.tsx  zoomable map (pinch/wheel/double-tap/pan)
    accounts, cross-device sync, global daily leaderboard, real friends. OpenAI
    API integration for personalized explanations also waits for this (never put
    API keys in this static site).
-2. Type-the-answer questions; expand to all ~195 countries; sound toggle;
+2. Type-the-answer questions; expand from 146 to all ~195 countries; sound toggle;
    streak-danger nudge.
 3. Localization: English/Norwegian/Spanish (structure for more later).
 4. Repo rename to `pangea`; Play Store via TWA; analytics (GoatCounter) and
