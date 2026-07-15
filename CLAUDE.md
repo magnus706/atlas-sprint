@@ -70,6 +70,28 @@ src/components/WorldMap.tsx  zoomable map (pinch/wheel/double-tap/pan)
   gate (never insta-fail); only a WRONG answer may end a run at 0 hearts.
 - Match exercises never cost hearts; they record per-pair answers.
 
+## Tests
+
+- `npm test` (vitest) covers the **pure logic only**: engine/srs/paths/medals/
+  format. No DOM/component tests — the UI is verified by playing it. CI runs
+  `npm test` before the build, so a red test blocks the deploy.
+- Tests live next to their source as `src/lib/*.test.ts`. tsconfig has no
+  `target` (so ES5): don't spread a Set in tests, use `Array.from`.
+- The daily challenge's "same questions for everyone" promise IS `hashSeed` +
+  `mulberry32` being deterministic — those are pinned hard. Don't touch them
+  without expecting to break every player's shared daily.
+
+## Open question — Oceania's shape challenge is all-or-nothing
+
+Oceania has 7 countries; `fj` is `noShape` and `sb`/`vu`/`ws` are `tiny`, so
+`challengePool("Oceania","shape")` is just au/nz/pg. Challenge count is
+`min(pool.length, 45)` = 3, and `CHALLENGE_PASS` is 90% → 2/3 (66.7%) fails, so
+only a perfect 3/3 conquers it. Every other continent tolerates a miss. Nobody
+chose this; it fell out of the data. Pinned by a test in `medals.test.ts` so any
+fix is deliberate and visible. Options if it should change: lower the pass for
+tiny pools, pad the pool with `tiny` countries for shape, or floor the question
+count. **Magnus's call.**
+
 ## Known engineering gotchas
 
 - Next.js reuses the /play component across lessons → per-run state resets in

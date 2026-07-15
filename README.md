@@ -15,9 +15,15 @@ daily streak habit loop. *"One more round?"*
 ```bash
 npm install
 npm run dev        # http://localhost:3210
+npm test           # unit tests (vitest) — pure game logic
+npm run test:watch # tests in watch mode
 npx tsc --noEmit   # typecheck
 npm run build      # static export → out/
 ```
+
+Tests cover the pure logic only — `engine`/`srs`/`paths`/`medals`/`format`. No DOM or
+component tests: the UI is verified by playing it. CI runs `npm test` before building, so
+a red test blocks the deploy.
 
 No backend, no env vars, no accounts. All progress persists in `localStorage` under the
 key `atlas-sprint-v1` — renaming that key wipes every player's progress.
