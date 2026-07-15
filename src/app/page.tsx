@@ -98,10 +98,6 @@ export default function Home() {
 
   return (
     <div className="safe-bottom px-4 pt-5">
-      {/* DEPLOY-CHECK: temporary banner, remove me. Search "DEPLOY-CHECK". */}
-      <p className="mb-4 rounded-xl border-2 border-brand bg-brand-light px-4 py-2 text-center text-sm font-extrabold text-brand-deep">
-        Hello Magnus, this is a test.
-      </p>
       {/* Header */}
       <motion.header {...fadeUp} className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-3">

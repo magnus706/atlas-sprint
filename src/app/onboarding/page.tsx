@@ -166,10 +166,6 @@ export default function Onboarding() {
           <p className="mt-2 max-w-xs text-base font-bold text-sub">
             Master the world one round at a time. Countries, capitals, flags — fast, fun, yours.
           </p>
-          {/* DEPLOY-CHECK: temporary banner, remove me. Search "DEPLOY-CHECK". */}
-          <p className="mt-5 rounded-xl border-2 border-brand bg-brand-light px-4 py-2 text-sm font-extrabold text-brand-deep">
-            Hello Magnus, this is a test.
-          </p>
           <Btn full onClick={next} className="mt-10">
             Let's go
           </Btn>
