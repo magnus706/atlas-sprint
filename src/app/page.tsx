@@ -104,7 +104,7 @@ export default function Home() {
           <Mascot size={52} float={false} />
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-sub">{greeting}</p>
-            <h1 className="text-2xl font-extrabold leading-tight">Pangea</h1>
+            <h1 className="text-2xl font-extrabold leading-tight">Globli</h1>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1.5">

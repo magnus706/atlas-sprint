@@ -14,7 +14,7 @@ interface BIPEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-const DISMISS_KEY = "atlas-sprint-install-dismissed";
+const DISMISS_KEY = "globli-install-dismissed";
 
 export default function InstallPrompt() {
   const [deferred, setDeferred] = useState<BIPEvent | null>(null);
@@ -102,7 +102,7 @@ export default function InstallPrompt() {
           <div className="flex items-center gap-3 rounded-2xl border-2 border-line bg-white p-3 shadow-[0_6px_0_#E5E5E5]">
             <Mascot size={48} float={false} />
             <div className="flex-1">
-              <p className="text-sm font-extrabold leading-tight">Add Pangea to your phone</p>
+              <p className="text-sm font-extrabold leading-tight">Add Globli to your phone</p>
               {showIosHint ? (
                 <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-sub">
                   Tap <ShareIcon size={14} className="text-blue" /> then “Add to Home Screen”

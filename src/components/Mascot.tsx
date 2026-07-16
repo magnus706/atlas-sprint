@@ -1,5 +1,5 @@
 "use client";
-// "Pan" — the Pangea mascot. Real illustrated art (public/mascot/<pose>.png),
+// "Pan" — the Globli mascot. Real illustrated art (public/mascot/<pose>.png),
 // background pre-removed. Falls back to a flat-vector penguin only if an image
 // fails to load. Wrapped in framer-motion for idle float / celebrate bounce.
 

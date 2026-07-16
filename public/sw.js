@@ -1,4 +1,4 @@
-// Atlas Sprint service worker — minimal offline shell.
+// Globli service worker — minimal offline shell.
 // Network-first for navigation (always fresh when online, cached fallback offline);
 // cache-first for static assets and flag images.
 //
@@ -6,7 +6,7 @@
 // site root (local) and under GitHub Pages' /<repo>/ prefix with no config.
 
 const BASE = self.location.pathname.replace(/sw\.js$/, ""); // e.g. "/" or "/atlas-sprint/"
-const CACHE = "atlas-sprint-v1";
+const CACHE = "globli-v1";
 const CORE = ["", "learn/", "sandbox/", "rankings/", "stats/", "review/"].map((p) => BASE + p);
 
 self.addEventListener("install", (event) => {

@@ -1,6 +1,6 @@
 "use client";
 // Real continent silhouettes as icons, generated from the map data.
-// Unique to Pangea — no clipart, no emoji.
+// Unique to Globli — no clipart, no emoji.
 
 import { useMemo } from "react";
 import { geoNaturalEarth1, geoPath } from "d3-geo";

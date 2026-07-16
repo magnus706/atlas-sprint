@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-// Atlas Sprint brand v2 — clean white surfaces, hairline borders,
+// Globli brand v2 — clean white surfaces, hairline borders,
 // one signature teal, flat accent set. No soft shadows; pressed 3D buttons.
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],

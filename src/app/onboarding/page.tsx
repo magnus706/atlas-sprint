@@ -162,7 +162,7 @@ export default function Onboarding() {
       {step === 0 && (
         <motion.div key="s0" {...slide} className="flex flex-1 flex-col items-center justify-center text-center">
           <Mascot size={180} pose="happy" />
-          <h1 className="mt-6 text-4xl font-extrabold tracking-tight">Pangea</h1>
+          <h1 className="mt-6 text-4xl font-extrabold tracking-tight">Globli</h1>
           <p className="mt-2 max-w-xs text-base font-bold text-sub">
             Master the world one round at a time. Countries, capitals, flags — fast, fun, yours.
           </p>

@@ -1,8 +1,13 @@
-# Pangea — project context for Claude Code
+# Globli — project context for Claude Code
 
 Mobile-first geography learning game (Duolingo-inspired, original brand).
 Live at **https://magnus706.github.io/atlas-sprint/** · installable PWA.
 Owner: Magnus (magnus706). Norwegian; non-US founder.
+
+**Naming:** the app is **Globli** (renamed 2026-07-16, was Atlas Sprint → Pangea).
+The **GitHub repo and live URL are still `atlas-sprint`** — the basePath must match
+the repo name, so it can't change until Magnus renames the repo on GitHub. Until
+then: display name Globli everywhere, `/atlas-sprint/` URL path stays.
 
 ## Working on this repo
 
@@ -16,13 +21,17 @@ Owner: Magnus (magnus706). Norwegian; non-US founder.
   automatically (~90s). Nothing else needed. The Pages build sets
   `NEXT_PUBLIC_BASE_PATH=/atlas-sprint`; local dev serves at root. Any new asset
   or manifest link must respect the base path (see layout.tsx / InstallPrompt).
-- localStorage key is `atlas-sprint-v1` — do not rename (wipes user progress).
-  App display name is Pangea; repo/URL still "atlas-sprint" (rename = optional
-  future task: rename GitHub repo + update basePath in workflow + next.config).
+- localStorage key is `globli-v1` (was `atlas-sprint-v1`). **Never rename it without
+  a migration** — it holds all player progress. `src/lib/storage.ts` owns the key and
+  reads legacy keys via `pickStoredRaw` so a rename doesn't wipe anyone;
+  `LEGACY_STORAGE_KEYS` must keep listing `atlas-sprint-v1`. Covered by storage.test.ts.
+- Repo/URL still "atlas-sprint" (see Naming above). Renaming the GitHub repo →
+  update `NEXT_PUBLIC_BASE_PATH` in .github/workflows/deploy.yml and basePath in
+  next.config.mjs in lockstep, or every asset 404s.
 
 ## Brand
 
-- Name **Pangea**, mascot **Pan** (teal dragon-ish creature with a map-pin tail;
+- Name **Globli**, mascot **Pan** (teal dragon-ish creature with a map-pin tail;
   art in `public/mascot/*.png`, sources in `mascot-src/`, processed by
   `scripts/process-mascot.mjs` — flood-fill background keying, measured tolerance).
 - Design: white cards on soft teal canvas (#EDF8F6), hairline borders (#E5E5E5),
@@ -113,5 +122,5 @@ count. **Magnus's call.**
 2. Type-the-answer questions; expand from 146 to all ~195 countries; sound toggle;
    streak-danger nudge.
 3. Localization: English/Norwegian/Spanish (structure for more later).
-4. Repo rename to `pangea`; Play Store via TWA; analytics (GoatCounter) and
+4. Repo rename to `globli`; Play Store via TWA; analytics (GoatCounter) and
    Sentry, both free tier.

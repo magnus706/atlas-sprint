@@ -1,5 +1,5 @@
 "use client";
-// Pangea icon set — original flat two-tone SVGs on a 24px grid.
+// Globli icon set — original flat two-tone SVGs on a 24px grid.
 // No emoji, no icon libraries. Each icon takes a pixel size and renders inline.
 
 import React from "react";

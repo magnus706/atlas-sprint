@@ -12,6 +12,7 @@ import React, {
   useState,
 } from "react";
 import { dayKey, daysBetween } from "./format";
+import { STORAGE_KEY, pickStoredRaw } from "./storage";
 import { COUNTRIES, CONTINENTS, ofContinent, type Continent } from "@/data/countries";
 import type { Skill } from "./engine";
 import {
@@ -68,7 +69,6 @@ export interface AppState {
 export const MAX_HEARTS = 5;
 export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
 
-const KEY = "atlas-sprint-v1";
 
 const defaultState: AppState = {
   version: 1,
@@ -158,7 +158,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     loaded.current = true;
     let s = defaultState;
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = pickStoredRaw((k) => localStorage.getItem(k));
       if (raw) s = { ...defaultState, ...JSON.parse(raw), version: 1 };
     } catch {
       /* corrupted → fresh start */
@@ -170,7 +170,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     try {
-      localStorage.setItem(KEY, JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       /* storage full/blocked */
     }
@@ -415,7 +415,7 @@ export const BADGES: Badge[] = [
   { id: "sprint600", name: "Speedster", desc: "Score 600+ in Sprint", test: (s) => s.sprintBest >= 600 },
   { id: "century", name: "Century", desc: "100 correct answers", test: (s) => s.correct >= 100 },
   { id: "explorer", name: "Explorer", desc: "Inspect 15 countries in Sandbox", test: (s) => s.explored.length >= 15 },
-  { id: "atlas25", name: "Pangea Apprentice", desc: "Touch 25 countries", test: (s) => Object.keys(s.mastery).length >= 25 },
+  { id: "atlas25", name: "Globli Apprentice", desc: "Touch 25 countries", test: (s) => Object.keys(s.mastery).length >= 25 },
   {
     id: "master10", name: "Cartographer", desc: "Master 10 countries",
     test: (s) => Object.values(s.mastery).filter((m) => masteryState(m) === "Mastered").length >= 10,

@@ -1,4 +1,4 @@
-# Pangea
+# Globli
 
 A fast, joyful, mobile-first geography mastery game. Countries, capitals, flags, shapes,
 neighbours, map placement, and top-10 rankings — built as short, tactile rounds around a
@@ -6,9 +6,10 @@ daily streak habit loop. *"One more round?"*
 
 **Live:** https://magnus706.github.io/atlas-sprint/ · installable PWA
 
-> The app is named **Pangea**; the repo and URL are still `atlas-sprint`. Renaming the
-> repo is a deliberate future task (it means updating `basePath` in the deploy workflow
-> and `next.config.mjs` in lockstep), not an oversight.
+> The app is named **Globli** (formerly Atlas Sprint, then Pangea). The GitHub repo and
+> URL are still `atlas-sprint`: the base path must match the repo name, so it can't change
+> until the repo is renamed on GitHub (which also means updating `NEXT_PUBLIC_BASE_PATH`
+> in the deploy workflow and `basePath` in `next.config.mjs` in lockstep). Not an oversight.
 
 ## Run it
 
@@ -26,7 +27,9 @@ component tests: the UI is verified by playing it. CI runs `npm test` before bui
 a red test blocks the deploy.
 
 No backend, no env vars, no accounts. All progress persists in `localStorage` under the
-key `atlas-sprint-v1` — renaming that key wipes every player's progress.
+key `globli-v1`. **Never rename that key without a migration** — it holds every player's
+progress. `src/lib/storage.ts` owns it and falls back to legacy keys (`atlas-sprint-v1`)
+via `pickStoredRaw`, so the Globli rename didn't wipe anyone; keep that list intact.
 
 > **Never run `npm run build` while the dev server is running.** Both write to `.next/`,
 > and the dev server starts serving broken chunks (blank page). Stop dev, `rm -rf .next`,
@@ -168,5 +171,5 @@ scripts/
 2. Type-the-answer questions; expand from 146 to all ~195 countries; sound toggle;
    streak-danger nudge.
 3. Localisation: English / Norwegian / Spanish (structured for more later).
-4. Repo rename to `pangea`; Play Store via TWA; analytics (GoatCounter) and Sentry, both
+4. Repo rename to `globli`; Play Store via TWA; analytics (GoatCounter) and Sentry, both
    free tier.
